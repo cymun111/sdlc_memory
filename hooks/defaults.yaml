@@ -1,0 +1,10 @@
+schema_version: 1
+events:
+  agent.session.started: { enabled: false, handler: retrieve-context, timeout_ms: 5000, retries: 0, failure_policy: warn }
+  agent.task.started: { enabled: false, handler: retrieve-context, timeout_ms: 5000, retries: 0, failure_policy: warn }
+  agent.task.completed: { enabled: false, handler: capture-learning, timeout_ms: 10000, retries: 5, failure_policy: queue }
+  candidate.received: { enabled: false, handler: validate-candidate, timeout_ms: 10000, retries: 5, failure_policy: queue }
+  knowledge.change.proposed: { enabled: false, handler: validate-knowledge-change, timeout_ms: 10000, retries: 0, failure_policy: fail }
+  knowledge.published: { enabled: false, handler: refresh-index, timeout_ms: 30000, retries: 5, failure_policy: queue }
+  source.changed: { enabled: false, handler: revalidate-sources, timeout_ms: 30000, retries: 5, failure_policy: queue }
+  maintenance.tick: { enabled: false, handler: retry-pending, timeout_ms: 30000, retries: 5, failure_policy: queue }

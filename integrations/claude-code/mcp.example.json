@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "engineering-knowledge": {
+      "command": "ABSOLUTE_PATH_TO_NODE",
+      "args": ["ABSOLUTE_PATH_TO_REPOSITORY/dist/cli.js", "serve", "--transport", "stdio"],
+      "env": { "KNOWLEDGE_ROOT": "ABSOLUTE_PATH_TO_REPOSITORY" }
+    }
+  }
+}

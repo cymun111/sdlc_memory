@@ -1,0 +1,15 @@
+# TEMPLATE ONLY: This workflow is intentionally disabled until an authenticated
+# capture endpoint and repo-scoped credential are deployed and tested.
+# Copy to a participating repository only after configuring those prerequisites.
+name: knowledge-capture-template
+on:
+  workflow_dispatch:
+    inputs:
+      note:
+        description: Template only; no capture call is made
+        required: false
+jobs:
+  not-configured:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "No endpoint configured. This template does not submit artifacts or source changes."

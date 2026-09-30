@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://engineering-knowledge.invalid/schemas/knowledge.schema.json",
+  "title": "Engineering knowledge record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "id", "title", "summary", "type", "scope", "status", "owner", "sources", "relationships", "created_at", "updated_at"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "id": { "type": "string", "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)*$" },
+    "title": { "type": "string", "minLength": 1, "maxLength": 160 },
+    "summary": { "type": "string", "minLength": 1, "maxLength": 600 },
+    "type": { "enum": ["observed-behavior", "approved-policy", "decision", "practice", "troubleshooting", "overview"] },
+    "scope": { "$ref": "#/$defs/scope" },
+    "status": { "enum": ["candidate", "verified", "disputed", "superseded", "rejected"] },
+    "owner": { "type": "string", "minLength": 1 },
+    "sources": { "type": "array", "items": { "type": "object" } },
+    "relationships": { "type": "array", "items": { "type": "object", "required": ["type", "target"], "properties": { "type": { "enum": ["applies-to", "supported-by", "depends-on", "calls", "governed-by", "related-to", "supersedes", "contradicts"] }, "target": { "type": "string" } }, "additionalProperties": false } },
+    "created_at": { "type": "string", "format": "date-time" },
+    "updated_at": { "type": "string", "format": "date-time" },
+    "tags": { "type": "array", "items": { "type": "string" } },
+    "supersedes": { "type": "array", "items": { "type": "string" } },
+    "review_after": { "type": "string", "format": "date-time" }
+  },
+  "$defs": {
+    "scope": {
+      "oneOf": [
+        { "type": "object", "required": ["kind"], "properties": { "kind": { "const": "shared" } }, "additionalProperties": false },
+        { "type": "object", "required": ["kind", "team_id"], "properties": { "kind": { "const": "team" }, "team_id": { "type": "string" } }, "additionalProperties": false },
+        { "type": "object", "required": ["kind", "repo_id"], "properties": { "kind": { "const": "repo" }, "repo_id": { "type": "string" } }, "additionalProperties": false },
+        { "type": "object", "required": ["kind", "repo_ids"], "properties": { "kind": { "const": "cross-repo" }, "repo_ids": { "type": "array", "minItems": 2, "items": { "type": "string" } } }, "additionalProperties": false }
+      ]
+    }
+  }
+}

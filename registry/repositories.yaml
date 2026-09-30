@@ -1,0 +1,13 @@
+# Fictional onboarding fixtures. Replace with registered repositories and verified owners.
+repositories:
+  - id: sdlc-command
+    name: Fictional SDLC Command Fixture
+    default_branch: main
+    teams: [platform]
+  - id: worksheet-generator
+    name: Fictional Worksheet Generator Fixture
+    default_branch: main
+    teams: [platform]
+teams:
+  - id: platform
+    owners: [fixture-owner]

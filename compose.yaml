@@ -1,0 +1,12 @@
+services:
+  knowledge:
+    build: .
+    environment:
+      KNOWLEDGE_ROOT: /app
+      KNOWLEDGE_RUNTIME_ROOT: /var/lib/engineering-knowledge
+      KNOWLEDGE_TRANSPORT: stdio
+    volumes:
+      - knowledge-runtime:/var/lib/engineering-knowledge
+    restart: unless-stopped
+volumes:
+  knowledge-runtime:
