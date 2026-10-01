@@ -1,0 +1,15 @@
+name: publish-index-request
+on:
+  workflow_dispatch:
+    inputs:
+      knowledge_commit:
+        description: Merged knowledge commit to refresh
+        required: true
+        type: string
+jobs:
+  notice:
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          KNOWLEDGE_COMMIT: ${{ inputs.knowledge_commit }}
+        run: echo "Index refresh endpoint is not implemented. No external request was sent for $KNOWLEDGE_COMMIT."

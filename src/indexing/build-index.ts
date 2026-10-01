@@ -1,8 +1,10 @@
 import { createHash } from 'node:crypto';
-import { readFile, readdir } from 'node:fs/promises';
+import { mkdir, readFile, readdir, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import type { DatabaseSync } from 'node:sqlite';
+import { randomUUID } from 'node:crypto';
+import { DatabaseSync } from 'node:sqlite';
 import { parseKnowledgeMarkdown } from '../validation/record.js';
+import { openIndex } from './database.js';
 
 async function findRecords(directory: string): Promise<string[]> {
   const entries = await readdir(directory, { withFileTypes: true }).catch(() => []);
@@ -19,7 +21,7 @@ export async function buildFixtureIndex(database: DatabaseSync, root: string): P
   const files = await findRecords(path.join(root, 'knowledge'));
   const records = await Promise.all(files.map(async (file) => {
     const body = await readFile(file, 'utf8');
-    return { record: parseKnowledgeMarkdown(body), body };
+    return { record: await parseKnowledgeMarkdown(body, root), body };
   }));
   database.exec('BEGIN IMMEDIATE');
   try {
@@ -43,4 +45,28 @@ export async function buildFixtureIndex(database: DatabaseSync, root: string): P
     throw error;
   }
   return records.length;
+}
+
+export async function buildActiveGeneration(root: string, runtimeRoot: string): Promise<{ generation: string; recordCount: number }> {
+  const generationsRoot = path.join(runtimeRoot, 'index-generations');
+  await mkdir(generationsRoot, { recursive: true });
+  const generation = randomUUID();
+  const temporaryDatabase = path.join(generationsRoot, `${generation}.staging.sqlite`);
+  const finalDatabase = path.join(generationsRoot, `${generation}.sqlite`);
+  const database = await openIndex(runtimeRoot, temporaryDatabase);
+  let recordCount: number;
+  try {
+    recordCount = await buildFixtureIndex(database, root);
+    database.prepare('UPDATE index_manifest SET generation = ? WHERE singleton = 1').run(generation);
+  } catch (error) {
+    database.close();
+    throw error;
+  }
+  database.close();
+  await rename(temporaryDatabase, finalDatabase);
+  const activePath = path.join(runtimeRoot, 'index-active.json');
+  const activeTemporary = `${activePath}.${randomUUID()}.tmp`;
+  await writeFile(activeTemporary, `${JSON.stringify({ generation, database: path.relative(runtimeRoot, finalDatabase), recordCount, switchedAt: new Date().toISOString() }, null, 2)}\n`, { flag: 'wx' });
+  await rename(activeTemporary, activePath);
+  return { generation, recordCount };
 }

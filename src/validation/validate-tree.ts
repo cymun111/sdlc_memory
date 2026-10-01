@@ -20,7 +20,7 @@ export async function validateKnowledgeTree(root: string): Promise<ValidationIss
   const seenIds = new Map<string, string>();
   for (const file of files) {
     try {
-      const record = parseKnowledgeMarkdown(await readFile(file, 'utf8'));
+      const record = await parseKnowledgeMarkdown(await readFile(file, 'utf8'), root);
       const earlier = seenIds.get(record.id);
       if (earlier) issues.push({ file, message: `Duplicate id ${record.id}; already in ${earlier}` });
       else seenIds.set(record.id, file);

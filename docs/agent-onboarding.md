@@ -2,7 +2,7 @@
 
 ## MCP status
 
-The server uses the official TypeScript SDK and supports local stdio in this starter. Tool names and input schemas are exposed, but every handler returns `NOT_IMPLEMENTED`. Run `npm run build` then configure a client to launch Node directly with the absolute path to `dist/cli.js` and arguments `serve --transport stdio`; provide an explicit `KNOWLEDGE_ROOT` environment value. Restart the client after changing its MCP configuration.
+The server uses the official TypeScript SDK and supports local stdio. Seven service-backed tools provide task context, search, direct reads, relationships, candidate submission, candidate updates, and conflict reporting. Run `npm run build` then configure a client to launch Node directly with the absolute path to `dist/cli.js` and arguments `serve --transport stdio`; provide an explicit `KNOWLEDGE_ROOT` environment value. Restart the client after changing its MCP configuration or rebuilding tool changes.
 
 The following examples are unverified templates, not compatibility claims. Confirm each product's current native configuration format before installing it. Never put credentials in committed client configuration. No remote HTTP endpoint is available in this starter.
 

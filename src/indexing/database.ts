@@ -1,11 +1,22 @@
 import { DatabaseSync } from 'node:sqlite';
-import { mkdir } from 'node:fs/promises';
+import { mkdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 
-export async function openIndex(runtimeRoot = '.runtime'): Promise<DatabaseSync> {
+export async function openIndex(runtimeRoot = '.runtime', databasePath?: string): Promise<DatabaseSync> {
   await mkdir(runtimeRoot, { recursive: true });
-  const database = new DatabaseSync(path.join(runtimeRoot, 'knowledge.sqlite'));
-  database.exec('PRAGMA journal_mode = WAL;');
+  let resolvedDatabase = databasePath ?? path.join(runtimeRoot, 'knowledge.sqlite');
+  if (!databasePath) {
+    try {
+      const active = JSON.parse(await readFile(path.join(runtimeRoot, 'index-active.json'), 'utf8')) as { database: string };
+      const candidate = path.resolve(runtimeRoot, active.database);
+      if (!candidate.startsWith(`${path.resolve(runtimeRoot)}${path.sep}`)) throw new Error('Active index path escapes runtime root');
+      resolvedDatabase = candidate;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    }
+  }
+  const database = new DatabaseSync(resolvedDatabase);
+  database.exec('PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000;');
   database.exec(`
     CREATE TABLE IF NOT EXISTS records (
       id TEXT PRIMARY KEY,

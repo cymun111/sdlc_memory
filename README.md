@@ -16,13 +16,15 @@ npm test
 npm run smoke:mcp
 ```
 
-Run `npm run knowledge -- serve --transport stdio` to expose six MCP tool contracts. The current tool handlers report `NOT_IMPLEMENTED`; they are not production retrieval or capture. The starter CLI supports local fixture validation/indexing/search and writes local candidate files with exclusive creation. Use `npm run knowledge -- help` for the command list.
+Run `npm run knowledge -- serve --transport stdio` to expose seven service-backed MCP tools. Local retrieval, candidate intake, candidate updates, and conflict reporting are implemented. Use `npm run knowledge -- help` for the command list. On Windows PowerShell with script execution disabled, use `npm.cmd` in place of `npm`.
 
 ## Repository status
 
-This is a buildable foundation, not a completed V1. SQLite schema creation, fixture indexing, FTS lookup, front-matter validation, basic candidate file writing, stdio MCP discovery, and event-name allowlisting are implemented. Sample records and registry entries are fictional test fixtures, not claims about real repositories, and must not be promoted as evidence.
+This is a local implementation milestone, not a completed V1. It includes schema validation, SQLite FTS retrieval, local repository registration, scope filtering, graph traversal, context budgets, staged index replacement, idempotent candidate receipts, local owner review, and a session launcher. These paths still need broader security and recovery coverage. Sample records and registry entries are fictional test fixtures, not claims about real repositories, and must not be promoted as evidence. Retrieval targeted at a registered application excludes those starter fixtures.
 
-Not implemented: authenticated Streamable HTTP, complete ACL enforcement, response/token/byte budgets, graph traversal, durable idempotent submission queue, Git branch/PR writer, owner review/publishing, source evidence verification/freshness, atomic index generations and incremental parity, real hook receipts/retries/installation, production source-change workflow, credential administration, verified Codex/Claude Code/Cursor integration, end-to-end remote capture, 30-task retrieval evaluation, and measured performance report. Do not describe acceptance criteria as passed until their checks exist and run.
+Not complete: authenticated Streamable HTTP, comprehensive ACL and budget verification, crash/concurrency recovery, Git branch/PR publishing, remote evidence verification, incremental indexing, real hook receipts/retries/installation, production source-change workflow, credential administration, verified Codex/Claude Code/Cursor integration, end-to-end remote capture, 30-task retrieval evaluation, and measured performance report. Local approval writes the knowledge worktree and refreshes the index; it does not establish protected-branch publication. The session launcher is implemented but real agent context delivery and automatic completion capture remain unverified. Do not describe acceptance criteria as passed until their checks exist and run.
+
+`npm run smoke:mcp` starts the built CLI from another working directory against an isolated temporary checkout. An actual SDK client verifies seven-tool discovery, scoped task retrieval, direct reads, relationship traversal, denied reads, active generation identity, candidate submission/replay, updates with stale-hash rejection, and candidate exclusion. This tests local stdio only and leaves application repositories untouched. See [candidate editing](docs/review-and-publishing.md) for the `update_candidate` contract.
 
 ## Layout
 
