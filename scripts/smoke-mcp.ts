@@ -31,16 +31,32 @@ try {
   const source = path.join(root, 'source');
   await mkdir(source);
   execFileSync('git', ['init', source], { stdio: 'ignore' });
+  await writeFile(path.join(source, 'package.json'), JSON.stringify({ main: 'main.js', scripts: { test: 'node --test' } }));
+  await writeFile(path.join(source, 'main.js'), 'export const synthetic = true;\n');
+  execFileSync('git', ['-C', source, 'add', '.'], { stdio: 'ignore' });
+  execFileSync('git', ['-C', source, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '-m', 'Synthetic map source'], { stdio: 'ignore' });
   const paths = await resolvePaths({ root });
   await registerRepository(paths, { id: 'test-app', repoPath: source, owner: 'test-owner', team: 'test-team' });
+  execFileSync(process.execPath, [path.join(checkout, 'dist/cli.js'), '--root', root, 'repos', 'map', 'build', '--repo', 'test-app'], { stdio: 'pipe' });
   for (const [id, repo, related] of [['test.first', 'test-app', true], ['test.second', 'test-app', false], ['test.hidden', 'other-app', false]] as const) {
     await writeFile(path.join(root, 'knowledge', id + '.md'), markdown(id, repo, 'verified', related));
   }
   const active = await buildActiveGeneration(root, paths.runtimeRoot);
   await client.connect(new StdioClientTransport({ command: process.execPath, args: [path.join(checkout, 'dist/cli.js'), '--root', root, 'serve', '--transport', 'stdio'], cwd: os.tmpdir(), stderr: 'pipe' }));
   const tools = await client.listTools();
-  assert.deepEqual(new Set(tools.tools.map(({ name }) => name)), new Set(['get_task_context', 'search_knowledge', 'get_knowledge', 'get_related', 'submit_learning', 'update_candidate', 'report_conflict']));
-  const context = await call('get_task_context', { repo_id: 'test-app', task: 'Synthetic' });
+  assert.deepEqual(new Set(tools.tools.map(({ name }) => name)), new Set(['get_repository_map', 'list_repositories', 'get_task_context', 'search_knowledge', 'get_knowledge', 'get_related', 'submit_learning', 'update_candidate', 'report_conflict']));
+  const discovery = await call('list_repositories', { limit: 1 });
+  assert.equal(discovery.repositories[0].id, 'test-app');
+  const map = await call('get_repository_map', { repo_id: discovery.repositories[0].id, section: 'entry_points' });
+  assert.equal(map.items[0].path, 'main.js');
+  assert.equal(map.freshness.head_changed, false);
+  const cliMap = JSON.parse(execFileSync(process.execPath, [path.join(checkout, 'dist/cli.js'), '--root', root, 'repos', 'map', 'show', '--repo', 'test-app', '--section', 'entry_points'], { encoding: 'utf8', cwd: os.tmpdir() }));
+  assert.deepEqual(cliMap, map);
+  assert.equal(discovery.repositories[0].description_status, 'unavailable');
+  assert.ok(!JSON.stringify(discovery).includes(source));
+  const cliDiscovery = JSON.parse(execFileSync(process.execPath, [path.join(checkout, 'dist/cli.js'), '--root', root, 'repos', 'list', '--limit', '1'], { encoding: 'utf8', cwd: os.tmpdir() }));
+  assert.deepEqual(cliDiscovery, discovery);
+  const context = await call('get_task_context', { repo_id: discovery.repositories[0].id, task: 'Synthetic' });
   assert.equal(context.status, 'ok');
   assert.equal(context.index_generation, active.generation);
   assert.deepEqual(new Set(context.results.map((record: { id: string }) => record.id)), new Set(['test.first', 'test.second']));
@@ -62,7 +78,7 @@ try {
   assert.equal((await call('submit_learning', submission)).content_hash, updated.content_hash);
   assert.equal((await client.callTool({ name: 'get_knowledge', arguments: { id: 'test.candidate' } })).isError, true);
   assert.equal((await call('search_knowledge', { query: 'Synthetic', repo_id: 'test-app' })).results.length, 2);
-  console.log('MCP stdio passed: seven-tool discovery, context, reads, relationships, scope denial, generation identity, submission, update, stale-hash conflict and replay.');
+  console.log('MCP stdio passed: nine-tool discovery, repository discovery/map/CLI parity, context, reads, relationships, scope denial, generation identity, submission, update, stale-hash conflict and replay.');
 } finally {
   await client.close();
   await rm(root, { recursive: true, force: true });

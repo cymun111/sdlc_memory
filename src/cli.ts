@@ -10,6 +10,8 @@ import { parseRootOptions, registerRepository, resolvePaths, saveLocalConfig } f
 import { validateKnowledgeTree } from './validation/validate-tree.js';
 import { buildActiveGeneration } from './indexing/build-index.js';
 import { KnowledgeService } from './retrieval/service.js';
+import { listRepositories } from './retrieval/repositories.js';
+import { buildRepositoryMap, getRepositoryMap } from './retrieval/repository-map.js';
 import { serveStdio } from './mcp/server.js';
 
 function flag(args: string[], name: string): string | undefined {
@@ -43,8 +45,28 @@ async function main(): Promise<void> {
   switch (command) {
     case 'help':
     case '--help':
-      console.log('knowledge [--root <path>] [--config <path>] <init|register-repo|validate|index|query|submit|candidates|candidate|onboard|doctor|session|serve|status>');
+      console.log('knowledge [--root <path>] [--config <path>] <init|register-repo|repos|validate|index|query|submit|candidates|candidate|onboard|doctor|session|serve|status>');
       break;
+    case 'repos': {
+      if (args[0] === 'map') {
+        const repoId = requireFlag(args, '--repo');
+        if (args[1] === 'build') console.log(JSON.stringify(await buildRepositoryMap(paths, repoId, flag(args, '--revision')), null, 2));
+        else if (args[1] === 'show') {
+          const section = flag(args, '--section');
+          const prefix = flag(args, '--path-prefix');
+          const limit = flag(args, '--limit');
+          const cursor = flag(args, '--cursor');
+          console.log(JSON.stringify(await getRepositoryMap(paths, { repo_id: repoId, ...(section ? { section } : {}), ...(prefix ? { path_prefix: prefix } : {}), ...(limit ? { limit: Number(limit) } : {}), ...(cursor ? { cursor } : {}) }), null, 2));
+        } else throw new Error('Usage: knowledge repos map <build|show> --repo <id>');
+        break;
+      }
+      if (args[0] !== 'list') throw new Error('Usage: knowledge repos list [--query <text>] [--limit <1-50>] [--cursor <token>]');
+      const query = flag(args, '--query');
+      const limit = flag(args, '--limit');
+      const cursor = flag(args, '--cursor');
+      console.log(JSON.stringify(await listRepositories(paths, { ...(query !== undefined ? { query } : {}), ...(limit !== undefined ? { limit: Number(limit) } : {}), ...(cursor !== undefined ? { cursor } : {}) }), null, 2));
+      break;
+    }
     case 'init':
       await mkdir(paths.runtimeRoot, { recursive: true });
       if (!existsSync(paths.configPath)) await saveLocalConfig(paths, paths.config);

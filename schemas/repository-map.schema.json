@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "type": "number",
+      "const": 1
+    },
+    "extractor_version": {
+      "type": "string",
+      "const": "git-npm-1"
+    },
+    "repo_id": {
+      "type": "string"
+    },
+    "checkout_identity": {
+      "type": "string"
+    },
+    "source_revision": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40,64}$"
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "truncated": {
+      "type": "boolean"
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "items": {
+      "maxItems": 30000,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "section": {
+            "type": "string",
+            "enum": [
+              "files",
+              "packages",
+              "entry_points",
+              "commands",
+              "tests",
+              "languages"
+            ]
+          },
+          "path": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "evidence": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string"
+              },
+              "blob_hash": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{40,64}$"
+              }
+            },
+            "required": [
+              "path",
+              "blob_hash"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "section",
+          "path",
+          "label",
+          "evidence"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "schema_version",
+    "extractor_version",
+    "repo_id",
+    "checkout_identity",
+    "source_revision",
+    "generated_at",
+    "truncated",
+    "warnings",
+    "items"
+  ],
+  "additionalProperties": false
+}
