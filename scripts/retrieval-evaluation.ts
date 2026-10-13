@@ -21,7 +21,7 @@ const scope = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('repo'), repo_id: z.string() }).strict(),
   z.object({ kind: z.literal('cross-repo'), repo_ids: z.array(z.string()).min(2) }).strict()
 ]);
-const record = z.object({ id: z.string(), scope, title: z.string(), summary: z.string(), type: z.enum(['practice', 'approved-policy']).default('practice'), status: z.enum(['verified', 'disputed', 'superseded']).default('verified'), relationships: z.array(z.object({ type: z.enum(['depends-on', 'related-to', 'contradicts']), target: z.string() }).strict()).default([]), code_revision: z.literal('old').optional(), denied_evidence: z.boolean().optional() }).strict();
+const record = z.object({ id: z.string().max(200).regex(/^[a-z0-9]+(?:[.-][a-z0-9]+)*$/), scope, title: z.string(), summary: z.string(), type: z.enum(['practice', 'approved-policy']).default('practice'), status: z.enum(['verified', 'disputed', 'superseded']).default('verified'), relationships: z.array(z.object({ type: z.enum(['depends-on', 'related-to', 'contradicts']), target: z.string() }).strict()).default([]), code_revision: z.literal('old').optional(), denied_evidence: z.boolean().optional() }).strict();
 const task = z.object({
   id: z.string(), repo: z.string(), task: z.string(), annotation: z.string().min(10), expected: z.array(z.string()),
   baseline_missing: z.array(z.string()).default([]),
