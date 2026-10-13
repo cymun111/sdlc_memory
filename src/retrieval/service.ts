@@ -5,6 +5,7 @@ import type { LocalConfig, RegisteredRepo, ResolvedPaths } from '../core/config.
 import type { KnowledgeRecord } from '../core/types.js';
 import { openIndex } from '../indexing/database.js';
 import { parse } from 'yaml';
+import { DomainError } from '../capture/candidate-store.js';
 
 interface StoredRecord { id: string; title: string; summary: string; type: string; scope_kind: string; scope_json: string; status: string; body: string; content_hash: string }
 export interface KnowledgeSummary { id: string; title: string; summary: string; type: string; scope: unknown; matched_reasons: string[]; evidence: unknown[]; freshness: string; relationships: Array<{ type: string; target: string }> }
@@ -105,7 +106,14 @@ export class KnowledgeService {
 
   async #withIndex<T>(callback: (database: DatabaseSync) => T): Promise<T> {
     const database = await openIndex(this.paths.runtimeRoot);
-    try { return callback(database); } finally { database.close(); }
+    try { return callback(database); }
+    catch (error) {
+      if (error instanceof DomainError) throw error;
+      if (error && typeof error === 'object' && 'code' in error && error.code === 'ERR_SQLITE_ERROR') {
+        throw new DomainError('INDEX_QUERY_FAILED', 'The knowledge query failed; check or rebuild the active index.');
+      }
+      throw error;
+    } finally { database.close(); }
   }
 
   async #accessible(database: DatabaseSync, repoId?: string): Promise<{ target?: RegisteredRepo; records: Array<{ stored: StoredRecord; record: KnowledgeRecord }> }> {
@@ -203,7 +211,7 @@ export class KnowledgeService {
               WHERE record_search MATCH ? AND r.id IN (${allowedIds.map(() => '?').join(',')})
               ORDER BY bm25(record_search) LIMIT ?`).all(tokenize(query), ...allowedIds, this.paths.config.budgets.maxResults * 3) as Array<Record<string, SQLOutputValue>>;
             matches = rows.map(decodeRecord).filter((stored): stored is StoredRecord => Boolean(stored)).map((stored) => ({ stored, record: parsedRecord(stored), reason: 'task-text-match' }));
-          } catch { matches = []; }
+          } catch { throw new DomainError('INDEX_QUERY_FAILED', 'The knowledge query failed; check or rebuild the active index.'); }
         }
       }
       const mandatory = policy.filter(({ record }) => sourceFreshness(record, this.paths.config, input.source_revision) !== 'needs_revalidation');

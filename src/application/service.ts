@@ -29,7 +29,7 @@ export class KnowledgeApplication {
       if (error instanceof contracts.IntegrationContractError) throw error;
       if (error instanceof DomainError) {
         const code = contracts.errorOutput.shape.code.safeParse(error.code);
-        if (code.success) throw new contracts.IntegrationContractError(code.data, 'The knowledge operation could not complete.', code.data === 'INDEX_UNAVAILABLE');
+        if (code.success) throw new contracts.IntegrationContractError(code.data, 'The knowledge operation could not complete.', ['INDEX_UNAVAILABLE', 'INDEX_QUERY_FAILED', 'INDEX_SOURCE_UNAVAILABLE', 'INDEX_BUILD_FAILED'].includes(code.data));
       }
       throw new contracts.IntegrationContractError('INTERNAL_ERROR', 'The knowledge operation could not complete.');
     }

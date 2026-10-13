@@ -1,21 +1,28 @@
 import { DatabaseSync } from 'node:sqlite';
 import { mkdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
+import { DomainError } from '../capture/candidate-store.js';
 
 export async function openIndex(runtimeRoot = '.runtime', databasePath?: string): Promise<DatabaseSync> {
-  await mkdir(runtimeRoot, { recursive: true });
-  let resolvedDatabase = databasePath ?? path.join(runtimeRoot, 'knowledge.sqlite');
   if (!databasePath) {
+    let database: DatabaseSync | undefined;
     try {
-      const active = JSON.parse(await readFile(path.join(runtimeRoot, 'index-active.json'), 'utf8')) as { database: string };
+      const active = JSON.parse(await readFile(path.join(runtimeRoot, 'index-active.json'), 'utf8')) as { database?: unknown; generation?: unknown };
+      if (typeof active.database !== 'string' || typeof active.generation !== 'string' || !active.generation) throw new Error('Invalid active manifest');
       const candidate = path.resolve(runtimeRoot, active.database);
       if (!candidate.startsWith(`${path.resolve(runtimeRoot)}${path.sep}`)) throw new Error('Active index path escapes runtime root');
-      resolvedDatabase = candidate;
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+      database = new DatabaseSync(candidate, { readOnly: true });
+      const manifest = database.prepare('SELECT generation FROM index_manifest WHERE singleton = 1').get();
+      if (!manifest || manifest.generation !== active.generation) throw new Error('Invalid index generation');
+      return database;
+    } catch {
+      database?.close();
+      throw new DomainError('INDEX_UNAVAILABLE', 'The active index is unavailable; rebuild with knowledge index --full.');
     }
   }
-  const database = new DatabaseSync(resolvedDatabase);
+  await mkdir(runtimeRoot, { recursive: true });
+  const database = new DatabaseSync(databasePath);
+  try {
   database.exec('PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000;');
   database.exec(`
     CREATE TABLE IF NOT EXISTS records (
@@ -45,4 +52,5 @@ export async function openIndex(runtimeRoot = '.runtime', databasePath?: string)
     );
   `);
   return database;
+  } catch (error) { database.close(); throw error; }
 }
