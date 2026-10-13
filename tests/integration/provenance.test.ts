@@ -13,13 +13,18 @@ import { KnowledgeApplication } from '../../src/application/service.js';
 import { buildRepositoryMap, getRepositoryMap } from '../../src/retrieval/repository-map.js';
 import { startSession } from '../../src/capture/session.js';
 
-const changes = vi.hoisted(() => ({ file: '', replacement: '', triggered: false }));
+const changes = vi.hoisted(() => ({ file: '', replacement: '', triggered: false, advanceHead: false, transientSchema: false, schemaReads: 0 }));
 vi.mock('node:fs/promises', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:fs/promises')>();
   return { ...actual, readFile: async (...args: Parameters<typeof actual.readFile>) => {
     const value = await actual.readFile(...args);
+    if (changes.transientSchema && String(args[0]) === changes.file) {
+      if (++changes.schemaReads === 2) return changes.replacement;
+      return value;
+    }
     if (!changes.triggered && String(args[0]) === changes.file) {
       changes.triggered = true; await actual.writeFile(changes.file, changes.replacement);
+      if (changes.advanceHead) execFileSync('git', ['-C', path.dirname(path.dirname(changes.file)), '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '--allow-empty', '-m', 'Synthetic concurrent HEAD change'], { stdio: 'ignore' });
     }
     return value;
   } };
@@ -40,7 +45,7 @@ beforeEach(async () => {
   paths.config.repositories = [{ id: 'sample', name: 'Sample', owner: 'local-owner', team: 'local', path: root, aliases: [] }];
   service = new KnowledgeService(paths);
 });
-afterEach(async () => { changes.file = ''; changes.triggered = false; await rm(root, { recursive: true, force: true }); });
+afterEach(async () => { changes.file = ''; changes.triggered = false; changes.advanceHead = false; changes.transientSchema = false; changes.schemaReads = 0; await rm(root, { recursive: true, force: true }); });
 async function snapshot(result: unknown) { return (result as any).knowledge_snapshot; }
 it('stores a complete immutable clean snapshot manifest', async () => {
   git('init'); const revision = commit(); const built = await buildActiveGeneration(root, paths.runtimeRoot);
@@ -187,4 +192,27 @@ it('the primary application revision is never applied to another repository sour
   await writeFile(filename(), body); await buildActiveGeneration(root, paths.runtimeRoot);
   const context = await service.taskContext({ repo_id: 'sample', task: 'Synthetic', source_revision: primary });
   expect(context.results[0]?.freshness).toBe('revision_not_checked');
+});
+it('HEAD changes during capture abort the build even when record bytes stay identical', async () => {
+  git('init'); commit(); const good = await buildActiveGeneration(root, paths.runtimeRoot);
+  changes.file = filename(); changes.replacement = markdown(); changes.advanceHead = true;
+  await expect(buildActiveGeneration(root, paths.runtimeRoot)).rejects.toMatchObject({ code: 'INDEX_SOURCE_CHANGED' });
+  expect(JSON.parse(await readFile(path.join(paths.runtimeRoot, 'index-active.json'), 'utf8')).generation).toBe(good.generation);
+});
+it('line-ending normalization and Unicode paths have deterministic fingerprints', async () => {
+  const unicode = path.join(root, 'knowledge', '界 example.md');
+  await writeFile(unicode, markdown().replace('id: sample.overview', 'id: sample.second'));
+  git('init'); commit(); await buildActiveGeneration(root, paths.runtimeRoot);
+  const first = await snapshot(await service.search('Synthetic', 'sample'));
+  expect(first.source_state).toBe('clean');
+  await writeFile(unicode, (await readFile(unicode, 'utf8')).replaceAll('\n', '\r\n'));
+  await buildActiveGeneration(root, paths.runtimeRoot);
+  expect((await snapshot(await service.search('Synthetic', 'sample'))).content_fingerprint).toBe(first.content_fingerprint);
+});
+it('validation uses captured schema bytes even if a later schema read briefly differs', async () => {
+  changes.file = path.join(root, 'schemas/knowledge.schema.json');
+  const schema = JSON.parse(await readFile(changes.file, 'utf8')); changes.replacement = JSON.stringify(schema);
+  schema.properties.summary.maxLength = 3; await writeFile(changes.file, JSON.stringify(schema));
+  changes.transientSchema = true;
+  await expect(buildActiveGeneration(root, paths.runtimeRoot)).rejects.toMatchObject({ code: 'INDEX_VALIDATION_FAILED' });
 });
