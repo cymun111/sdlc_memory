@@ -8,6 +8,7 @@ import type { KnowledgeRecord } from '../core/types.js';
 import { buildActiveGeneration } from '../indexing/build-index.js';
 import { parseKnowledgeMarkdown } from '../validation/record.js';
 import { listCandidates, markCandidateState, persistConflictReport, DomainError } from './candidate-store.js';
+import { conflictReportSchema } from './conflicts.js';
 
 function git(repoPath: string, args: string[]): string {
   return execFileSync('git', ['-C', repoPath, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
@@ -142,11 +143,29 @@ export function createConflictReport(paths: ResolvedPaths, input: { repoId: stri
   if (input.recordIds.length < 2 || !input.explanation.trim()) throw new DomainError('VALIDATION_ERROR', 'Conflict report requires at least two record IDs and an explanation');
   const id = randomUUID();
   const receiptId = randomUUID();
-  const directory = path.join(paths.knowledgeRoot, 'candidates', input.repoId, 'conflicts');
+  const matches = paths.config.repositories.filter((repo) => repo.id === input.repoId || repo.aliases.includes(input.repoId));
+  if (matches.length !== 1) throw new DomainError('NOT_FOUND', 'Repository is not registered unambiguously.');
+  const repo = matches[0]!;
+  const parsed = conflictReportSchema.safeParse({ schema_version: 1, repo_id: repo.id, id, receipt_id: receiptId, record_ids: input.recordIds, explanation: input.explanation, evidence: input.evidence ?? [], submitter: paths.config.principal, state: 'candidate', created_at: new Date().toISOString() });
+  if (!parsed.success) throw new DomainError('VALIDATION_ERROR', 'The conflict report is invalid.');
+  const data = parsed.data; const body = JSON.stringify(data, null, 2) + '\n';
+  if (Buffer.byteLength(body, 'utf8') > 65536) throw new DomainError('VALIDATION_ERROR', 'Conflict report exceeds the byte limit.');
+  const directory = path.join(paths.knowledgeRoot, 'candidates', repo.id, 'conflicts');
+  let ancestor = directory;
+  const filesystem = process.getBuiltinModule('node:fs');
+  while (true) {
+    try {
+      if (!filesystem.lstatSync(ancestor).isDirectory() || filesystem.realpathSync(ancestor) !== ancestor) throw new DomainError('FORBIDDEN', 'Conflict directory must not resolve through a link.');
+      break;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT' || ancestor === paths.knowledgeRoot) throw new DomainError('FORBIDDEN', 'Conflict directory is unavailable or unsafe.');
+      ancestor = path.dirname(ancestor);
+    }
+  }
   mkdirSync(directory, { recursive: true });
+  if (process.getBuiltinModule('node:fs').realpathSync(directory) !== directory) throw new DomainError('FORBIDDEN', 'Conflict directory must not resolve through a link.');
   const filename = path.join(directory, `${id}.json`);
-  const data = { id, receipt_id: receiptId, record_ids: input.recordIds, explanation: input.explanation, evidence: input.evidence ?? [], submitter: paths.config.principal, state: 'candidate', created_at: new Date().toISOString() };
-  writeFileSync(filename, `${JSON.stringify(data, null, 2)}\n`, { flag: 'wx', mode: 0o600 });
+  writeFileSync(filename, body, { flag: 'wx', mode: 0o600, flush: true });
   persistConflictReport(paths, { id, receipt_id: receiptId, record_ids: input.recordIds, explanation: input.explanation, evidence: input.evidence ?? [] });
   return { id, receipt_id: receiptId, path: filename, state: 'candidate' };
 }

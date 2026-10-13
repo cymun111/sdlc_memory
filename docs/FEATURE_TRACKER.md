@@ -28,7 +28,7 @@ IDs are renumbered by priority at the user's explicit request. The mapping below
 | AEF-001 | Versioned SDLC Command integration contract | P0 | Done | None |
 | AEF-002 | Explicit failures and safe index rebuilds | P0 | Done | AEF-001 |
 | AEF-003 | Snapshot provenance and drift reporting | P0 | Done | AEF-001, AEF-002 |
-| AEF-004 | Conflict visibility, policies, and response isolation | P0 | Planned | AEF-001, AEF-003 |
+| AEF-004 | Conflict visibility, policies, and response isolation | P0 | Done | AEF-001, AEF-003 |
 | AEF-005 | Multi-repository retrieval evaluation | P1 | Planned | AEF-002 through AEF-004 |
 | AEF-006 | Repository discovery through MCP | P1 | Done | Existing local configuration |
 | AEF-007 | Evidence-backed repository maps | P1 | Done | AEF-006 |
@@ -119,7 +119,7 @@ IDs are renumbered by priority at the user's explicit request. The mapping below
 
 ## AEF-004: Conflict visibility, policies, and response isolation
 
-**Priority / status:** P0 / Planned.
+**Priority / status:** P0 / Done for local conflict/policy gates and structural projection.
 **Outcome:** Required policies and conflicts remain explicit without exposing inaccessible metadata.
 
 **Acceptance criteria:**
@@ -133,6 +133,8 @@ IDs are renumbered by priority at the user's explicit request. The mapping below
 **Implementation details:** Connect capture/review conflict state to retrieval. Audit raw `summary()` relationships/evidence. Define reviewed resolution and applicability; approval evidence and freshness are separate.
 
 **Integration contribution:** Supplies explicit continue, review, or block outcomes for planning.
+
+**Completion scope:** Authorized report/curated contradiction visibility; non-normative history; stale/disputed/unknown/approval/review-date blockers; bounded follow-up references and conflict traversal; projected metadata/record headers; owner-only expected-hash report review; permission and linked-write guards; CLI and SDK stdio verification. See [semantics](conflicts-and-policies.md) and [TDD evidence](aef-004-tdd.md). Arbitrary prose classification, shared authentication, remote approval verification, protected-branch publication and comprehensive crash recovery remain follow-ups.
 
 ## AEF-005: Multi-repository retrieval evaluation
 
@@ -422,6 +424,7 @@ Historical evidence is preserved from the previous tracker and establishes local
 | AEF-001 | New | 2026-10-13 | [Schemas/facade](../src/application/index.ts), [integration design](sdlc-command-integration.md) | [Consumer tests](../tests/integration/application.test.ts); build, typecheck, tests, fixtures, and MCP smoke | Local contract only; plan-only setup; delivery unconsumed; no-learning acknowledgement non-durable; broader service correctness work remains planned |
 | AEF-002 | New | 2026-10-13 | [Index builder](../src/indexing/build-index.ts), [reader](../src/indexing/database.ts), [graph validation](../src/validation/graph.ts), retrieval/facade | [TDD checkpoints and results](aef-002-tdd.md); 68 tests, build/typecheck/fixtures/SDK stdio passed; feature coverage gates passed | Local controlled failure recovery; best-effort status; hard-kill/power-loss and concurrent-writer recovery remain follow-ups |
 | AEF-003 | New | 2026-10-13 | [Provenance schemas/services](../src/indexing/provenance.ts), indexing, retrieval, facade/CLI/receipts | [TDD checkpoints](aef-003-tdd.md); 88 tests, build/typecheck/fixtures/SDK smoke passed; provenance and indexing/graph coverage gates passed | Legacy indexes require full rebuild; live drift is moment-in-time; no source locking or continuous freshness; no receiving-system wiring |
+| AEF-004 | New | 2026-10-13 | [Visibility projection](../src/retrieval/visibility.ts), [conflict review](../src/capture/conflicts.ts), retrieval/CLI/MCP contracts | [TDD checkpoints](aef-004-tdd.md); 125 tests, build/typecheck/fixtures/SDK stdio and targeted coverage gates passed | Local owner worktree review; declared approval shape only; known structural metadata projection; no shared ACL/protected publication/native-agent integration |
 | AEF-006 | AEF-001 | 2026-10-01 | [Discovery service](../src/retrieval/repositories.ts), MCP/CLI | [Discovery tests](../tests/integration/repositories.test.ts), [SDK smoke](../scripts/smoke-mcp.ts); prior tracker records build, typecheck, 30 tests, fixtures, and smoke passing | Local allowlist; live freshness unchecked; SDLC Command integration unverified |
 | AEF-007 | AEF-002 | 2026-10-01 | [Map service](../src/retrieval/repository-map.ts), [schema](../schemas/repository-map.schema.json), MCP/CLI | [Map tests](../tests/integration/repository-map.test.ts), [SDK smoke](../scripts/smoke-mcp.ts); prior tracker records build, typecheck, 35 tests, fixtures, and smoke passing | Git/npm only; explicit rebuild; no symbols/call graph; integration unverified |
 
