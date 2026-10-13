@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -11,7 +11,8 @@ afterEach(async () => { if (temporaryDirectory) await rm(temporaryDirectory, { r
 describe('fixture index', () => {
   it('creates FTS and manifest tables for an empty knowledge tree', async () => {
     temporaryDirectory = await mkdtemp(path.join(os.tmpdir(), 'ek-index-'));
-    const database = await openIndex(path.join(temporaryDirectory, 'runtime'));
+    await mkdir(path.join(temporaryDirectory, 'knowledge'));
+    const database = await openIndex(path.join(temporaryDirectory, 'runtime'), path.join(temporaryDirectory, 'fixture.sqlite'));
     try {
       const count = await buildFixtureIndex(database, temporaryDirectory);
       expect(count).toBe(0);
