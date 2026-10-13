@@ -7,6 +7,12 @@ import { parseKnowledgeMarkdown } from '../validation/record.js';
 import { openIndex } from './database.js';
 import { DomainError } from '../capture/candidate-store.js';
 import { validateRecordGraph } from '../validation/graph.js';
+import { z } from 'zod';
+
+export const indexBuildStatusSchema = z.discriminatedUnion('state', [
+  z.object({ schema_version: z.literal(1), attempted_generation: z.uuid(), occurred_at: z.iso.datetime(), state: z.literal('ready'), active_generation: z.uuid() }).strict(),
+  z.object({ schema_version: z.literal(1), attempted_generation: z.uuid(), occurred_at: z.iso.datetime(), state: z.literal('degraded'), error: z.object({ code: z.enum(['INDEX_SOURCE_UNAVAILABLE', 'INDEX_VALIDATION_FAILED', 'INDEX_BUILD_FAILED']), message: z.string().max(300) }).strict() }).strict()
+]);
 
 async function findRecords(directory: string): Promise<string[]> {
   let entries;
@@ -57,7 +63,6 @@ export async function buildFixtureIndex(database: DatabaseSync, root: string): P
 
 export async function buildActiveGeneration(root: string, runtimeRoot: string): Promise<{ generation: string; recordCount: number }> {
   const generationsRoot = path.join(runtimeRoot, 'index-generations');
-  await mkdir(generationsRoot, { recursive: true });
   const generation = randomUUID();
   const temporaryDatabase = path.join(generationsRoot, `${generation}.staging.sqlite`);
   const finalDatabase = path.join(generationsRoot, `${generation}.sqlite`);
@@ -68,10 +73,12 @@ export async function buildActiveGeneration(root: string, runtimeRoot: string): 
   let database: DatabaseSync | undefined;
   let switched = false;
   const status = async (value: object) => {
-    await writeFile(statusTemporary, JSON.stringify({ schema_version: 1, attempted_generation: generation, occurred_at: new Date().toISOString(), ...value }) + '\n', { flag: 'wx' });
+    const checked = indexBuildStatusSchema.parse({ schema_version: 1, attempted_generation: generation, occurred_at: new Date().toISOString(), ...value });
+    await writeFile(statusTemporary, JSON.stringify(checked) + '\n', { flag: 'wx' });
     await rename(statusTemporary, statusPath);
   };
   try {
+    await mkdir(generationsRoot, { recursive: true });
     database = await openIndex(runtimeRoot, temporaryDatabase);
     const recordCount = await buildFixtureIndex(database, root);
     database.prepare('UPDATE index_manifest SET generation = ? WHERE singleton = 1').run(generation);
