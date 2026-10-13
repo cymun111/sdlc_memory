@@ -21,8 +21,10 @@ export function readConflictReferences(paths: ResolvedPaths, readableIds: Set<st
   try {
     for (const repo of paths.config.repositories) {
       const directory = path.join(paths.knowledgeRoot, 'candidates', repo.id, 'conflicts');
-      if (!existsSync(directory)) continue;
-      if (realpathSync(directory) !== directory || !lstatSync(directory).isDirectory()) throw new Error('Invalid directory');
+      let canonical: string;
+      try { canonical = realpathSync(directory); }
+      catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') continue; throw error; }
+      if (canonical !== directory || !lstatSync(directory).isDirectory()) throw new Error('Invalid directory');
       for (const entry of readdirSync(directory, { withFileTypes: true })) {
         if (!entry.name.endsWith('.json')) continue;
         if (!entry.isFile() || entry.isSymbolicLink()) throw new Error('Invalid report file');
