@@ -58,8 +58,9 @@ export function createMcpServer(paths: ResolvedPaths): McpServer {
   server.registerTool('get_related', { description: 'Traverse authorized curated typed relationships within configured limits.', inputSchema: toolContracts.get_related.shape, ...common }, (input) => invoke(() => knowledge.related(input.id, input.repo_id, input.relation_types, input.depth, input.limit)));
   server.registerTool('submit_learning', { description: 'Submit a complete Markdown learning as a durable local candidate; publication remains owner-reviewed.', inputSchema: toolContracts.submit_learning.shape, ...common }, (input) => invoke(async () => submitCandidate(paths, { repoId: input.repo_id, idempotencyKey: input.idempotency_key, markdown: input.learning.markdown, submitter: paths.config.principal }) as unknown as Record<string, unknown>));
   server.registerTool('report_conflict', { description: 'Create a reviewable conflict report without changing published records.', inputSchema: toolContracts.report_conflict.shape, ...common }, (input) => invoke(async () => {
-    for (const id of input.record_ids) await knowledge.get(id, input.repo_id);
-    return createConflictReport(paths, { repoId: input.repo_id, recordIds: input.record_ids, explanation: input.explanation, ...(input.evidence ? { evidence: input.evidence } : {}) });
+    for (const id of input.record_ids) await knowledge.get(id, input.repo_id, 1, true);
+    const receipt = createConflictReport(paths, { repoId: input.repo_id, recordIds: input.record_ids, explanation: input.explanation, ...(input.evidence ? { evidence: input.evidence } : {}) });
+    return { id: receipt.id, receipt_id: receipt.receipt_id, state: receipt.state };
   }));
   return server;
 }

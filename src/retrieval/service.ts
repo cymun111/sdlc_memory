@@ -147,6 +147,7 @@ export class KnowledgeService {
       if (repoId && !localRepo(this.paths.config, repoId)) throw new DomainError('NOT_FOUND', 'Repository is not registered.');
       const stored = readRecord(database, id);
       if (!stored) throw new DomainError('NOT_FOUND', 'Knowledge record not found.');
+      if (!scopeAllowed(JSON.parse(stored.scope_json) as KnowledgeRecord['scope'], this.paths.config, localRepo(this.paths.config, repoId)) || !(stored.status === 'verified' || (includeHistory && ['disputed', 'superseded'].includes(stored.status)))) throw new DomainError('NOT_FOUND', 'Knowledge record not found.');
       const record = parsedRecord(stored);
       if (!publishedVisible(record, this.paths.config, localRepo(this.paths.config, repoId), includeHistory)) throw new DomainError('NOT_FOUND', 'Knowledge record not found.');
       const access = this.#accessibleSync(database, repoId);

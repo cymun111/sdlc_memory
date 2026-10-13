@@ -14,6 +14,7 @@ import { listRepositories } from './retrieval/repositories.js';
 import { buildRepositoryMap, getRepositoryMap } from './retrieval/repository-map.js';
 import { serveStdio } from './mcp/server.js';
 import { optionalProvenance } from './indexing/provenance.js';
+import { inspectConflictReport, resolveConflictReport } from './capture/conflicts.js';
 
 function flag(args: string[], name: string): string | undefined {
   const index = args.indexOf(name);
@@ -46,7 +47,7 @@ async function main(): Promise<void> {
   switch (command) {
     case 'help':
     case '--help':
-      console.log('knowledge [--root <path>] [--config <path>] <init|register-repo|repos|validate|index|query|submit|candidates|candidate|onboard|doctor|session|serve|status>');
+      console.log('knowledge [--root <path>] [--config <path>] <init|register-repo|repos|validate|index|query|get|conflict|submit|candidates|candidate|onboard|doctor|session|serve|status>');
       break;
     case 'repos': {
       if (args[0] === 'map') {
@@ -99,6 +100,18 @@ async function main(): Promise<void> {
       if (task) console.log(JSON.stringify(await knowledge.taskContext({ repo_id: repoId ?? requireFlag(args, '--repo'), task }), null, 2));
       else if (query) console.log(JSON.stringify(await knowledge.search(query, repoId), null, 2));
       else throw new Error('Usage: knowledge query [--repo <id> --task <text>] <search terms>');
+      break;
+    }
+    case 'get': {
+      console.log(JSON.stringify(await knowledge.get(requireFlag(args, '--id'), flag(args, '--repo'), flag(args, '--byte-limit') ? Number(requireFlag(args, '--byte-limit')) : 8192, args.includes('--include-history')), null, 2));
+      break;
+    }
+    case 'conflict': {
+      const action = args[0]; const id = args[1]; const repoId = requireFlag(args, '--repo');
+      if (!id) throw new Error('Conflict report ID is required.');
+      if (action === 'inspect') console.log(JSON.stringify(await inspectConflictReport(paths, repoId, id), null, 2));
+      else if (action === 'resolve' || action === 'reject') console.log(JSON.stringify(await resolveConflictReport(paths, { repoId, id, expectedHash: requireFlag(args, '--expected-hash'), state: action === 'resolve' ? 'resolved' : 'rejected', reason: requireFlag(args, '--reason') }), null, 2));
+      else throw new Error('Usage: knowledge conflict <inspect|resolve|reject> <id> --repo <id> [--expected-hash <hash> --reason <text>]');
       break;
     }
     case 'submit': {

@@ -68,6 +68,8 @@ export async function resolveConflictReport(paths: ResolvedPaths, request: unkno
   const parsed = resolutionInput.safeParse(request);
   if (!parsed.success) throw new DomainError('VALIDATION_ERROR', 'The conflict review request is invalid.');
   const input = parsed.data; const inspected = await inspectConflictReport(paths, input.repoId, input.id);
+  const currentOwner = ownerRepository(paths, input.repoId);
+  if (currentOwner.id !== inspected.repo_id) throw new DomainError('CONFLICT', 'Repository identity changed during review.');
   const filename = path.join(paths.knowledgeRoot, 'candidates', inspected.repo_id, 'conflicts', input.id + '.json');
   const lock = filename + '.lock'; const temporary = filename + '.' + randomUUID() + '.tmp';
   let descriptor: number;
