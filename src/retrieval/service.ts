@@ -52,6 +52,7 @@ function sourceFreshness(record: KnowledgeRecord, config: LocalConfig, sourceRev
   let sawCode = false;
   let unchecked = !sourceRevision;
   for (const raw of record.sources) {
+    if (raw.kind === 'test') return 'unknown'; // Test result artifacts are not verified by this local feature.
     if (raw.kind !== 'code') continue;
     sawCode = true;
     const repo = config.repositories.find((candidate) => candidate.id === raw.repo_id);
@@ -78,7 +79,8 @@ function tokenEstimate(value: unknown): number {
 
 function summary(stored: StoredRecord, record: KnowledgeRecord, reason: string, freshness: string, config: LocalConfig, readableIds: Set<string>, review = false): KnowledgeSummary {
   const projected = projectRecord(record, config, readableIds);
-  const requires_review = review || record.status === 'disputed' || (record.type === 'approved-policy' && (!hasApproval(projected) || !['not_applicable', 'verified_at_revision'].includes(freshness)));
+  const due = typeof record.review_after === 'string' && (!Number.isFinite(Date.parse(record.review_after)) || Date.parse(record.review_after) <= Date.now());
+  const requires_review = review || record.status === 'disputed' || (record.type === 'approved-policy' && (due || !hasApproval(projected) || !['not_applicable', 'verified_at_revision'].includes(freshness)));
   return { id: stored.id, title: stored.title, summary: stored.summary, type: stored.type, scope: projected.scope, matched_reasons: [reason], evidence: projected.sources, freshness, relationships: projected.relationships, editorial_status: record.status, normative: record.type === 'approved-policy' && record.status === 'verified' && !requires_review, requires_review };
 }
 
@@ -89,7 +91,7 @@ export class KnowledgeService {
   #metadata(database: DatabaseSync) { return this.#requestMetadata.get(database)!; }
   #freshness(record: KnowledgeRecord, access: Access, sourceRevision?: string): string {
     const projected = projectRecord(record, this.paths.config, access.readableIds);
-    if (record.sources.some((source) => source.kind === 'code') && !projected.sources.some((source) => source.kind === 'code')) return 'unknown';
+    if (record.sources.some((source) => ['code', 'test'].includes(String(source.kind))) && !projected.sources.some((source) => ['code', 'test'].includes(String(source.kind)))) return 'unknown';
     return sourceFreshness(projected, this.paths.config, sourceRevision, access.target?.id);
   }
   #conflicts(access: Access): ConflictReference[] {
