@@ -35,7 +35,7 @@ export const captureOutput = z.discriminatedUnion('state', [
   z.object({ ...version, repo_id: repoId, state: z.literal('candidate'), candidate_id: text, receipt_id: text, content_hash: z.string().regex(/^[a-f0-9]{64}$/), duplicate: z.boolean() }).strict(),
   z.object({ ...version, repo_id: repoId, state: z.enum(['published', 'rejected']), candidate_id: text, receipt_id: text, content_hash: z.string().regex(/^[a-f0-9]{64}$/), duplicate: z.boolean() }).strict()
 ]);
-export const errorOutput = z.object({ ...version, code: z.enum(['UNSUPPORTED_VERSION', 'VALIDATION_ERROR', 'NOT_FOUND', 'CONFLICT', 'CAPABILITY_UNAVAILABLE', 'FORBIDDEN', 'INDEX_UNAVAILABLE', 'CONTEXT_BUDGET_EXCEEDED', 'INTERNAL_ERROR']), message: z.string().max(300), retryable: z.boolean() }).strict();
+export const errorOutput = z.object({ ...version, code: z.enum(['UNSUPPORTED_VERSION', 'VALIDATION_ERROR', 'NOT_FOUND', 'CONFLICT', 'CAPABILITY_UNAVAILABLE', 'FORBIDDEN', 'INDEX_UNAVAILABLE', 'INDEX_QUERY_FAILED', 'INDEX_SOURCE_UNAVAILABLE', 'INDEX_VALIDATION_FAILED', 'INDEX_BUILD_FAILED', 'CONTEXT_BUDGET_EXCEEDED', 'INTERNAL_ERROR']), message: z.string().max(300), retryable: z.boolean() }).strict();
 
 export type IntegrationError = z.infer<typeof errorOutput>;
 export class IntegrationContractError extends Error {
