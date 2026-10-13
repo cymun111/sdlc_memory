@@ -6,7 +6,7 @@ import path from 'node:path';
 import { stringify } from 'yaml';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { buildActiveGeneration } from '../../src/indexing/build-index.js';
-import { resolvePaths, type ResolvedPaths } from '../../src/core/config.js';
+import { resolvePaths, saveLocalConfig, type ResolvedPaths } from '../../src/core/config.js';
 import { KnowledgeService } from '../../src/retrieval/service.js';
 import { listRepositories } from '../../src/retrieval/repositories.js';
 import { KnowledgeApplication } from '../../src/application/service.js';
@@ -154,4 +154,37 @@ it('historical HEAD changes with identical content are distinguishable from cont
   const result = await service.related('sample.overview', 'sample');
   expect(result.knowledge_revision).toBe(first);
   expect((result as any).checkout_drift).toMatchObject({ state: 'changed', head_revision: later, head_changed: true, content_changed: false });
+});
+it('CLI status and onboarding reports use indexed provenance rather than live HEAD', async () => {
+  await copyFile('package.json', path.join(root, 'package.json'));
+  git('init'); const indexedRevision = commit(); await saveLocalConfig(paths, paths.config); await buildActiveGeneration(root, paths.runtimeRoot);
+  await writeFile(filename(), markdown('Synthetic newer checkout.')); const currentRevision = commit();
+  const command = (args: string[]) => JSON.parse(execFileSync(process.execPath, [path.resolve('dist/cli.js'), '--root', root, ...args], { encoding: 'utf8', env: { ...process.env, CODEX_COMMAND: 'no-client-provenance-fixture' } }));
+  const status = command(['status']);
+  expect(status.knowledge_revision).toBe(indexedRevision);
+  expect(status.checkout_revision).toBe(currentRevision);
+  const report = command(['onboard', '--repo', 'sample', '--path', root, '--agent', 'codex', '--dry-run']);
+  expect(report.knowledge_snapshot.knowledge_commit).toBe(indexedRevision);
+  expect(report.source_revision).toBe(currentRevision);
+});
+it('changed schemas are actually recompiled on rebuild rather than cached by pathname', async () => {
+  await buildActiveGeneration(root, paths.runtimeRoot);
+  const schemaFile = path.join(root, 'schemas/knowledge.schema.json');
+  const schema = JSON.parse(await readFile(schemaFile, 'utf8')); schema.properties.summary.maxLength = 3;
+  await writeFile(schemaFile, JSON.stringify(schema));
+  await expect(buildActiveGeneration(root, paths.runtimeRoot)).rejects.toMatchObject({ code: 'INDEX_VALIDATION_FAILED' });
+});
+it('the primary application revision is never applied to another repository source', async () => {
+  git('init'); const primary = commit();
+  const other = path.join(root, 'other-source'); await mkdir(other);
+  execFileSync('git', ['init', other], { stdio: 'ignore' });
+  await writeFile(path.join(other, 'example.ts'), 'export const synthetic = true;\n');
+  execFileSync('git', ['-C', other, 'add', '.'], { stdio: 'ignore' });
+  execFileSync('git', ['-C', other, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '-m', 'Synthetic external source'], { stdio: 'ignore' });
+  const revision = execFileSync('git', ['-C', other, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+  paths.config.repositories.push({ id: 'other', name: 'Other', owner: 'local-owner', team: 'local', path: other, aliases: [] });
+  const body = markdown().replace('kind: documentation\n    reference: fictional-only', `kind: code\n    repo_id: other\n    commit: ${revision}\n    path: example.ts`);
+  await writeFile(filename(), body); await buildActiveGeneration(root, paths.runtimeRoot);
+  const context = await service.taskContext({ repo_id: 'sample', task: 'Synthetic', source_revision: primary });
+  expect(context.results[0]?.freshness).toBe('revision_not_checked');
 });
