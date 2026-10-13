@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, readdir, rename, writeFile, rm } from 'node:fs/promises';
+import { mkdir, rename, writeFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
@@ -8,31 +8,16 @@ import { openIndex } from './database.js';
 import { DomainError } from '../capture/candidate-store.js';
 import { validateRecordGraph } from '../validation/graph.js';
 import { z } from 'zod';
+import { captureBuildInputs, assertBuildInputsUnchanged, knowledgeSnapshotSchema, type BuildInputs } from './provenance.js';
 
 export const indexBuildStatusSchema = z.discriminatedUnion('state', [
   z.object({ schema_version: z.literal(1), attempted_generation: z.uuid(), occurred_at: z.iso.datetime(), state: z.literal('ready'), active_generation: z.uuid() }).strict(),
-  z.object({ schema_version: z.literal(1), attempted_generation: z.uuid(), occurred_at: z.iso.datetime(), state: z.literal('degraded'), error: z.object({ code: z.enum(['INDEX_SOURCE_UNAVAILABLE', 'INDEX_VALIDATION_FAILED', 'INDEX_BUILD_FAILED']), message: z.string().max(300) }).strict() }).strict()
+  z.object({ schema_version: z.literal(1), attempted_generation: z.uuid(), occurred_at: z.iso.datetime(), state: z.literal('degraded'), error: z.object({ code: z.enum(['INDEX_SOURCE_UNAVAILABLE', 'INDEX_SOURCE_CHANGED', 'INDEX_VALIDATION_FAILED', 'INDEX_BUILD_FAILED']), message: z.string().max(300) }).strict() }).strict()
 ]);
 
-async function findRecords(directory: string): Promise<string[]> {
-  let entries;
-  try { entries = await readdir(directory, { withFileTypes: true }); }
-  catch { throw new DomainError('INDEX_SOURCE_UNAVAILABLE', 'A required knowledge directory is unavailable.'); }
-  const results = await Promise.all(entries.map(async (entry) => {
-    const file = path.join(directory, entry.name);
-    if (entry.isSymbolicLink()) throw new DomainError('INDEX_SOURCE_UNAVAILABLE', 'Knowledge source links are not supported.');
-    if (entry.isDirectory()) return findRecords(file);
-    return entry.isFile() && entry.name.endsWith('.md') ? [file] : [];
-  }));
-  return results.flat();
-}
-
-export async function buildFixtureIndex(database: DatabaseSync, root: string): Promise<number> {
-  const files = await findRecords(path.join(root, 'knowledge'));
-  const records = await Promise.all(files.map(async (file) => {
-    let body;
-    try { body = await readFile(file, 'utf8'); }
-    catch { throw new DomainError('INDEX_SOURCE_UNAVAILABLE', 'A required knowledge record is unavailable.'); }
+export async function buildFixtureIndex(database: DatabaseSync, root: string, inputs?: BuildInputs, generation = randomUUID()): Promise<number> {
+  const captured = inputs ?? await captureBuildInputs(root);
+  const records = await Promise.all(captured.files.map(async ({ body }) => {
     try { return { record: await parseKnowledgeMarkdown(body, root), body }; }
     catch { throw new DomainError('INDEX_VALIDATION_FAILED', 'A knowledge record failed validation.'); }
   }));
@@ -51,8 +36,10 @@ export async function buildFixtureIndex(database: DatabaseSync, root: string): P
       insertSearch.run(record.id, record.title, record.summary, body.slice(body.indexOf('\n---', 4) + 4));
       for (const edge of record.relationships) insertEdge.run(record.id, edge.type, edge.target);
     }
-    database.prepare(`INSERT OR REPLACE INTO index_manifest (singleton, generation, built_at, record_count)
-      VALUES (1, ?, ?, ?)`).run(createHash('sha256').update(records.map(({ record }) => record.id).sort().join('\n')).digest('hex').slice(0, 16), new Date().toISOString(), records.length);
+    const snapshot = knowledgeSnapshotSchema.parse({ manifest_version: 2, schema_version: 1, indexer_version: 'knowledge-2', generation, built_at: new Date().toISOString(), record_count: records.length, knowledge_commit: captured.git.commit, source_state: captured.git.state, content_fingerprint: captured.contentFingerprint, schema_fingerprint: captured.schemaFingerprint });
+    database.prepare(`INSERT OR REPLACE INTO index_manifest (singleton, generation, built_at, record_count, knowledge_commit, snapshot_json)
+      VALUES (1, ?, ?, ?, ?, ?)`).run(generation, snapshot.built_at, records.length, snapshot.knowledge_commit, JSON.stringify(snapshot));
+    await assertBuildInputsUnchanged(root, captured);
     database.exec('COMMIT');
   } catch (error) {
     database.exec('ROLLBACK');
@@ -80,12 +67,13 @@ export async function buildActiveGeneration(root: string, runtimeRoot: string): 
   try {
     await mkdir(generationsRoot, { recursive: true });
     database = await openIndex(runtimeRoot, temporaryDatabase);
-    const recordCount = await buildFixtureIndex(database, root);
-    database.prepare('UPDATE index_manifest SET generation = ? WHERE singleton = 1').run(generation);
+    const inputs = await captureBuildInputs(root);
+    const recordCount = await buildFixtureIndex(database, root, inputs, generation);
     if (database.prepare('PRAGMA quick_check').get()?.quick_check !== 'ok') throw new Error('Integrity check failed');
     database.close(); database = undefined;
     await rename(temporaryDatabase, finalDatabase);
     await writeFile(activeTemporary, `${JSON.stringify({ generation, database: path.relative(runtimeRoot, finalDatabase), recordCount, switchedAt: new Date().toISOString() }, null, 2)}\n`, { flag: 'wx' });
+    await assertBuildInputsUnchanged(root, inputs);
     await rename(activeTemporary, activePath);
     switched = true;
     // Status is diagnostic. Failure to write it cannot invalidate a successfully switched index.

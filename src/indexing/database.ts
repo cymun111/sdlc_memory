@@ -2,6 +2,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { mkdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { DomainError } from '../capture/candidate-store.js';
+import { readSnapshot } from './provenance.js';
 
 export async function openIndex(runtimeRoot = '.runtime', databasePath?: string): Promise<DatabaseSync> {
   if (!databasePath) {
@@ -14,9 +15,11 @@ export async function openIndex(runtimeRoot = '.runtime', databasePath?: string)
       database = new DatabaseSync(candidate, { readOnly: true });
       const manifest = database.prepare('SELECT generation FROM index_manifest WHERE singleton = 1').get();
       if (!manifest || manifest.generation !== active.generation) throw new Error('Invalid index generation');
+      readSnapshot(database);
       return database;
-    } catch {
+    } catch (error) {
       database?.close();
+      if (error instanceof DomainError) throw error;
       throw new DomainError('INDEX_UNAVAILABLE', 'The active index is unavailable; rebuild with knowledge index --full.');
     }
   }
@@ -49,6 +52,7 @@ export async function openIndex(runtimeRoot = '.runtime', databasePath?: string)
       generation TEXT NOT NULL,
       built_at TEXT NOT NULL,
       record_count INTEGER NOT NULL
+      ,snapshot_json TEXT
     );
   `);
   return database;

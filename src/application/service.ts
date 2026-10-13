@@ -7,6 +7,7 @@ import { DomainError, submitCandidate } from '../capture/candidate-store.js';
 import { KnowledgeService } from '../retrieval/service.js';
 import { parseKnowledgeMarkdown } from '../validation/record.js';
 import * as contracts from './contracts.js';
+import { provenance } from '../indexing/provenance.js';
 
 /** Trusted local consumer boundary. Caller payloads cannot choose their principal or roots. */
 export class KnowledgeApplication {
@@ -29,7 +30,7 @@ export class KnowledgeApplication {
       if (error instanceof contracts.IntegrationContractError) throw error;
       if (error instanceof DomainError) {
         const code = contracts.errorOutput.shape.code.safeParse(error.code);
-        if (code.success) throw new contracts.IntegrationContractError(code.data, 'The knowledge operation could not complete.', ['INDEX_UNAVAILABLE', 'INDEX_QUERY_FAILED', 'INDEX_SOURCE_UNAVAILABLE', 'INDEX_BUILD_FAILED'].includes(code.data));
+        if (code.success) throw new contracts.IntegrationContractError(code.data, 'The knowledge operation could not complete.', ['INDEX_UNAVAILABLE', 'INDEX_REBUILD_REQUIRED', 'INDEX_SOURCE_CHANGED', 'INDEX_QUERY_FAILED', 'INDEX_SOURCE_UNAVAILABLE', 'INDEX_BUILD_FAILED'].includes(code.data));
       }
       throw new contracts.IntegrationContractError('INTERNAL_ERROR', 'The knowledge operation could not complete.');
     }
@@ -51,11 +52,12 @@ export class KnowledgeApplication {
     const repo_id = this.canonical(input.repo_id);
     return this.checked(contracts.readinessOutput, async () => {
       let generation: string | null = null;
+      let metadata: ReturnType<typeof provenance> | null = null;
       let manifest: string;
       try { manifest = await readFile(path.join(this.paths.runtimeRoot, 'index-active.json'), 'utf8'); }
       catch (error) {
         if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw new contracts.IntegrationContractError('INDEX_UNAVAILABLE', 'Cannot read the active index.', true);
-        return { contract_version: 1, repo_id, state: 'registered', index_generation: null, context_delivery_verified: false, scope_mode: 'local-config-allowlist' };
+        return { contract_version: 1, repo_id, state: 'registered', index_generation: null, knowledge_snapshot: null, checkout_drift: null, context_delivery_verified: false, scope_mode: 'local-config-allowlist' };
       }
       let database: DatabaseSync | undefined;
       try {
@@ -66,9 +68,10 @@ export class KnowledgeApplication {
         const row = database.prepare('SELECT generation FROM index_manifest WHERE singleton = 1').get();
         if (!row || row.generation !== active.generation) throw new Error('Invalid generation');
         generation = active.generation;
-      } catch { throw new contracts.IntegrationContractError('INDEX_UNAVAILABLE', 'Cannot read the active index.', true); }
+        metadata = provenance(database, this.paths.knowledgeRoot);
+      } catch (error) { if (error instanceof DomainError) throw error; throw new contracts.IntegrationContractError('INDEX_UNAVAILABLE', 'Cannot read the active index.', true); }
       finally { database?.close(); }
-      return { contract_version: 1, repo_id, state: 'index-available', index_generation: generation, context_delivery_verified: false, scope_mode: 'local-config-allowlist' };
+      return { contract_version: 1, repo_id, state: 'index-available', index_generation: generation, knowledge_snapshot: metadata!.knowledge_snapshot, checkout_drift: metadata!.checkout_drift, context_delivery_verified: false, scope_mode: 'local-config-allowlist' };
     });
   }
 
