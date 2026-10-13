@@ -87,6 +87,21 @@ try {
   assert.equal((await call('submit_learning', submission)).content_hash, updated.content_hash);
   assert.equal((await client.callTool({ name: 'get_knowledge', arguments: { id: 'test.candidate' } })).isError, true);
   assert.equal((await call('search_knowledge', { query: 'Synthetic', repo_id: 'test-app' })).results.length, 2);
+  const report = await call('report_conflict', { repo_id: 'test-app', record_ids: ['test.first', 'test.second'], explanation: 'Synthetic stdio report requiring owner review.' });
+  assert.ok(!('path' in report));
+  assert.ok((await call('get_task_context', { repo_id: 'test-app', task: 'Synthetic' })).unresolved_conflicts.includes(report.id));
+  const inspected = JSON.parse(execFileSync(process.execPath, [path.join(checkout, 'dist/cli.js'), '--root', root, 'conflict', 'inspect', report.id, '--repo', 'test-app'], { encoding: 'utf8' }));
+  execFileSync(process.execPath, [path.join(checkout, 'dist/cli.js'), '--root', root, 'conflict', 'resolve', report.id, '--repo', 'test-app', '--expected-hash', inspected.hash, '--reason', 'Owner reviewed the synthetic report.'], { stdio: 'pipe' });
+  assert.deepEqual((await call('get_task_context', { repo_id: 'test-app', task: 'Synthetic' })).unresolved_conflicts, []);
+  const policy = markdown('test.disputed-policy', 'test-app', 'disputed').replace('type: observed-behavior', 'type: approved-policy');
+  await writeFile(path.join(root, 'knowledge', 'disputed-policy.md'), policy);
+  await buildActiveGeneration(root, paths.runtimeRoot);
+  const blocked = await call('get_task_context', { repo_id: 'test-app', task: 'Synthetic' });
+  assert.equal(blocked.status, 'POLICY_REVIEW_REQUIRED');
+  assert.ok(blocked.policy_issues.some((issue: { id: string; reason: string }) => issue.id === 'test.disputed-policy' && issue.reason === 'disputed'));
+  const history = await call('get_knowledge', { id: 'test.disputed-policy', repo_id: 'test-app', include_history: true });
+  assert.equal(history.record.normative, false);
+  assert.equal(history.record.editorial_status, 'disputed');
   const activeManifest = JSON.parse(await readFile(path.join(paths.runtimeRoot, 'index-active.json'), 'utf8'));
   const database = new DatabaseSync(path.join(paths.runtimeRoot, activeManifest.database));
   database.exec('DROP TABLE record_search'); database.close();
@@ -98,7 +113,7 @@ try {
   const unavailable = await client.callTool({ name: 'search_knowledge', arguments: { repo_id: 'test-app', query: 'Synthetic' } });
   assert.equal(unavailable.isError, true);
   assert.equal((unavailable.structuredContent as any).data.error.code, 'INDEX_UNAVAILABLE');
-  console.log('MCP stdio passed: nine-tool discovery, repository/map/CLI parity, scoped reads, snapshot identity and drift, candidate updates/replay, and explicit query/unavailable-index failures.');
+  console.log('MCP stdio passed: nine-tool discovery, scoped reads/provenance, candidate updates/replay, conflict creation/owner resolution, historical inspection, policy-review blocking and explicit index failures.');
 } finally {
   await client.close();
   await rm(root, { recursive: true, force: true });

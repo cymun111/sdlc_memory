@@ -17,6 +17,18 @@ import { KnowledgeApplication } from '../../src/application/service.js';
 import { DatabaseSync } from 'node:sqlite';
 import { vi } from 'vitest';
 
+const permissions = vi.hoisted(() => ({ directory: '' }));
+vi.mock('node:fs', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs')>();
+  return { ...actual,
+    existsSync: (...args: Parameters<typeof actual.existsSync>) => String(args[0]) === permissions.directory ? false : actual.existsSync(...args),
+    realpathSync: (...args: Parameters<typeof actual.realpathSync>) => {
+      if (String(args[0]) === permissions.directory) throw Object.assign(new Error('private denied directory'), { code: 'EACCES' });
+      return actual.realpathSync(...args);
+    }
+  };
+});
+
 let root: string;
 let paths: ResolvedPaths;
 let service: KnowledgeService;
@@ -39,7 +51,7 @@ beforeEach(async () => {
   paths.config.repositories = [{ id: 'alpha', name: 'Alpha', owner: 'local-owner', team: 'one', path: path.join(root, 'source'), aliases: [] }];
   paths.config.teams = ['one']; service = new KnowledgeService(paths);
 });
-afterEach(async () => { vi.restoreAllMocks(); await rm(root, { recursive: true, force: true }); });
+afterEach(async () => { permissions.directory = ''; vi.restoreAllMocks(); await rm(root, { recursive: true, force: true }); });
 
 it('filters denied relationship and source references from summaries and full record headers', async () => {
   await record('beta.hidden', { scope: { kind: 'repo', repo_id: 'beta' }, title: 'Hidden title' });
@@ -281,4 +293,10 @@ it('explicit owner inspection uses the principal allowlist without granting deni
   expect((await (conflictStore as any).inspectConflictReport(paths, 'alpha', report.id)).report.record_ids).toEqual(['alpha.a', 'beta.b']);
   paths.config.repositories = paths.config.repositories.filter((repo) => repo.id !== 'beta');
   await expect((conflictStore as any).inspectConflictReport(paths, 'alpha', report.id)).rejects.toMatchObject({ code: 'NOT_FOUND' });
+});
+it('an unreadable authorized conflict directory is not treated as absent', async () => {
+  await record('alpha.a'); await record('alpha.b'); await index();
+  createConflictReport(paths, { repoId: 'alpha', recordIds: ['alpha.a', 'alpha.b'], explanation: 'Synthetic permission failure.' });
+  permissions.directory = path.join(root, 'candidates', 'alpha', 'conflicts');
+  await expect(context()).rejects.toMatchObject({ code: 'CONFLICT_STATE_UNAVAILABLE' });
 });
