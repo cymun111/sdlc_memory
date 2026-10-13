@@ -26,7 +26,7 @@ IDs are renumbered by priority at the user's explicit request. The mapping below
 | ID | Feature | Priority | Status | Dependencies |
 | --- | --- | --- | --- | --- |
 | AEF-001 | Versioned SDLC Command integration contract | P0 | Done | None |
-| AEF-002 | Explicit failures and safe index rebuilds | P0 | Planned | AEF-001 |
+| AEF-002 | Explicit failures and safe index rebuilds | P0 | Done | AEF-001 |
 | AEF-003 | Snapshot provenance and drift reporting | P0 | Planned | AEF-001, AEF-002 |
 | AEF-004 | Conflict visibility, policies, and response isolation | P0 | Planned | AEF-001, AEF-003 |
 | AEF-005 | Multi-repository retrieval evaluation | P1 | Planned | AEF-002 through AEF-004 |
@@ -81,7 +81,7 @@ IDs are renumbered by priority at the user's explicit request. The mapping below
 
 ## AEF-002: Explicit failures and safe index rebuilds
 
-**Priority / status:** P0 / Planned.
+**Priority / status:** P0 / Done for local failure semantics and controlled rebuild recovery.
 **Outcome:** Empty results cannot conceal failed retrieval or incomplete indexing.
 
 **Acceptance criteria:**
@@ -95,6 +95,8 @@ IDs are renumbered by priority at the user's explicit request. The mapping below
 **Implementation details:** Replace broad error suppression in `findRecords()` in `src/indexing/build-index.ts` and task retrieval in `src/retrieval/service.ts`. Introduce structured errors, bounded public diagnostics, staging completeness validation, and safe abandoned-staging cleanup.
 
 **Integration contribution:** Supports accurate onboarding failure and retry/degradation reporting.
+
+**Completion scope:** Read-only existing-generation reads; sanitized missing-index/query errors; validated records, references and supersession; last-good preservation; schema-validated build status; current-attempt cleanup; CLI validation and SDK/stdio verification. See [test-first evidence](aef-002-tdd.md) and [operations](operations.md). Hard-kill/power-loss durability, concurrent-writer recovery, and historical artifact sweeping are not claimed.
 
 ## AEF-003: Snapshot provenance and drift reporting
 
@@ -416,6 +418,7 @@ Historical evidence is preserved from the previous tracker and establishes local
 | Current ID | Previous ID | Completion date | Implementation | Verification | Limitations |
 | --- | --- | --- | --- | --- | --- |
 | AEF-001 | New | 2026-10-13 | [Schemas/facade](../src/application/index.ts), [integration design](sdlc-command-integration.md) | [Consumer tests](../tests/integration/application.test.ts); build, typecheck, tests, fixtures, and MCP smoke | Local contract only; plan-only setup; delivery unconsumed; no-learning acknowledgement non-durable; broader service correctness work remains planned |
+| AEF-002 | New | 2026-10-13 | [Index builder](../src/indexing/build-index.ts), [reader](../src/indexing/database.ts), [graph validation](../src/validation/graph.ts), retrieval/facade | [TDD checkpoints and results](aef-002-tdd.md); 68 tests, build/typecheck/fixtures/SDK stdio passed; feature coverage gates passed | Local controlled failure recovery; best-effort status; hard-kill/power-loss and concurrent-writer recovery remain follow-ups |
 | AEF-006 | AEF-001 | 2026-10-01 | [Discovery service](../src/retrieval/repositories.ts), MCP/CLI | [Discovery tests](../tests/integration/repositories.test.ts), [SDK smoke](../scripts/smoke-mcp.ts); prior tracker records build, typecheck, 30 tests, fixtures, and smoke passing | Local allowlist; live freshness unchecked; SDLC Command integration unverified |
 | AEF-007 | AEF-002 | 2026-10-01 | [Map service](../src/retrieval/repository-map.ts), [schema](../schemas/repository-map.schema.json), MCP/CLI | [Map tests](../tests/integration/repository-map.test.ts), [SDK smoke](../scripts/smoke-mcp.ts); prior tracker records build, typecheck, 35 tests, fixtures, and smoke passing | Git/npm only; explicit rebuild; no symbols/call graph; integration unverified |
 

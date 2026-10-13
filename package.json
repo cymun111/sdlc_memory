@@ -10,6 +10,7 @@
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run tests",
+    "coverage:aef-002": "vitest run tests --coverage --coverage.include=src/indexing/** --coverage.include=src/validation/graph.ts --coverage.reportsDirectory=.runtime/coverage-aef-002 --coverage.thresholds.statements=80 --coverage.thresholds.branches=80 --coverage.thresholds.functions=80 --coverage.thresholds.lines=80",
     "knowledge": "node dist/cli.js",
     "smoke:mcp": "tsx scripts/smoke-mcp.ts",
     "validate:fixtures": "tsx src/cli.ts validate",
@@ -31,6 +32,7 @@
   },
   "devDependencies": {
     "@types/node": "26.6.3",
+    "@vitest/coverage-v8": "5.0.3",
     "tsx": "4.23.15",
     "typescript": "7.0.2",
     "vitest": "5.0.3"
