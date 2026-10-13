@@ -151,6 +151,17 @@ export function createConflictReport(paths: ResolvedPaths, input: { repoId: stri
   const data = parsed.data; const body = JSON.stringify(data, null, 2) + '\n';
   if (Buffer.byteLength(body, 'utf8') > 65536) throw new DomainError('VALIDATION_ERROR', 'Conflict report exceeds the byte limit.');
   const directory = path.join(paths.knowledgeRoot, 'candidates', repo.id, 'conflicts');
+  let ancestor = directory;
+  const filesystem = process.getBuiltinModule('node:fs');
+  while (true) {
+    try {
+      if (!filesystem.lstatSync(ancestor).isDirectory() || filesystem.realpathSync(ancestor) !== ancestor) throw new DomainError('FORBIDDEN', 'Conflict directory must not resolve through a link.');
+      break;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT' || ancestor === paths.knowledgeRoot) throw new DomainError('FORBIDDEN', 'Conflict directory is unavailable or unsafe.');
+      ancestor = path.dirname(ancestor);
+    }
+  }
   mkdirSync(directory, { recursive: true });
   if (process.getBuiltinModule('node:fs').realpathSync(directory) !== directory) throw new DomainError('FORBIDDEN', 'Conflict directory must not resolve through a link.');
   const filename = path.join(directory, `${id}.json`);
