@@ -91,7 +91,8 @@ export class KnowledgeService {
   #metadata(database: DatabaseSync) { return this.#requestMetadata.get(database)!; }
   #freshness(record: KnowledgeRecord, access: Access, sourceRevision?: string): string {
     const projected = projectRecord(record, this.paths.config, access.readableIds);
-    if (record.sources.some((source) => ['code', 'test'].includes(String(source.kind))) && !projected.sources.some((source) => ['code', 'test'].includes(String(source.kind)))) return 'unknown';
+    const coded = (sources: KnowledgeRecord['sources']) => sources.filter((source) => ['code', 'test'].includes(String(source.kind))).length;
+    if (coded(record.sources) !== coded(projected.sources)) return 'unknown';
     return sourceFreshness(projected, this.paths.config, sourceRevision, access.target?.id);
   }
   #conflicts(access: Access): ConflictReference[] {
@@ -143,6 +144,7 @@ export class KnowledgeService {
   }
 
   async get(id: string, repoId?: string, byteLimit = 8192, includeHistory = false) {
+    if (!Number.isInteger(byteLimit) || byteLimit < 1 || byteLimit > 32768 || typeof includeHistory !== 'boolean') throw new DomainError('VALIDATION_ERROR', 'Invalid direct-read options.');
     return this.#withIndex((database) => {
       if (repoId && !localRepo(this.paths.config, repoId)) throw new DomainError('NOT_FOUND', 'Repository is not registered.');
       const stored = readRecord(database, id);

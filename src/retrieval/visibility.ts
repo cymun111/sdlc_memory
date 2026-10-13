@@ -35,7 +35,7 @@ export function projectEvidence(sources: KnowledgeRecord['sources'], config: Loc
       output.push(projected);
     } else if (source.kind === 'decision') {
       const link = source.url ?? source.reference;
-      if (!url(link) || !safeText(source.approver, 200) || typeof source.approved_at !== 'string' || !/^\d{4}-\d\d-\d\dT/.test(source.approved_at) || !Number.isFinite(Date.parse(source.approved_at))) continue;
+      if (!url(link) || !safeText(source.approver, 200) || typeof source.approved_at !== 'string' || !/^\d{4}-\d\d-\d\dT/.test(source.approved_at) || !Number.isFinite(Date.parse(source.approved_at)) || Date.parse(source.approved_at) > Date.now()) continue;
       output.push({ kind: 'decision', url: link, approver: source.approver, approved_at: source.approved_at });
     } else if (source.kind === 'documentation') {
       const reference = source.reference ?? source.url;
