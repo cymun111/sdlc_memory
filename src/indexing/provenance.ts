@@ -62,7 +62,7 @@ export async function captureBuildInputs(root: string): Promise<BuildInputs> {
   // Confirm clean attribution from actual Git objects, including ignored/untracked records.
   if (state.state === 'clean') {
     try {
-      const tracked = git(root, ['ls-tree', '-r', '--name-only', state.commit!, '--', 'knowledge']).split('\n').filter((file) => file.endsWith('.md')).sort();
+      const tracked = git(root, ['ls-tree', '-r', '-z', '--name-only', state.commit!, '--', 'knowledge']).split('\0').filter((file) => file.endsWith('.md')).sort();
       if (JSON.stringify(tracked) !== JSON.stringify(names)) state.state = 'dirty';
       for (const input of files) if (normalizeBody(execFileSync('git', ['-C', root, 'show', `${state.commit}:${input.file}`], { encoding: 'utf8', timeout: 5000, maxBuffer: 4 * 1024 * 1024, stdio: ['ignore', 'pipe', 'ignore'] })) !== input.body) state.state = 'dirty';
       if (schema !== 'schema-unavailable' && normalizeBody(execFileSync('git', ['-C', root, 'show', `${state.commit}:schemas/knowledge.schema.json`], { encoding: 'utf8', timeout: 5000, maxBuffer: 4 * 1024 * 1024, stdio: ['ignore', 'pipe', 'ignore'] })) !== schema) state.state = 'dirty';
