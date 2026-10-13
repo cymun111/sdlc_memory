@@ -4,6 +4,8 @@ The intended lifecycle is candidate intake, owner review, and publication throug
 
 Local candidate submission, inspection, expected-hash approval, and rejection are implemented. Local approval changes the knowledge worktree and refreshes its index; it does not create a Git commit, protected-branch merge, or GitHub PR. Shared publishing and comprehensive multi-process review recovery remain unfinished.
 
+Local conflict report inspection and owner-only expected-hash resolution/rejection are also implemented. See [conflicts and policies](conflicts-and-policies.md) for CLI commands, historical inspection, policy blockers, state ownership and recovery limits. Clearing a report does not remove curated contradiction edges or modify published policy.
+
 ## Editing a pending candidate through MCP
 
 Use `knowledge candidate inspect <id> --repo <repo-id>` to read the Markdown and its `hash`, or use the `content_hash` returned by your most recent submission/update. There is currently no candidate-inspection MCP tool; an agent inspecting existing candidates needs CLI access or the inspected content supplied by the reviewer.
