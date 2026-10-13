@@ -18,7 +18,7 @@ export const indexBuildStatusSchema = z.discriminatedUnion('state', [
 export async function buildFixtureIndex(database: DatabaseSync, root: string, inputs?: BuildInputs, generation = randomUUID()): Promise<number> {
   const captured = inputs ?? await captureBuildInputs(root);
   const records = await Promise.all(captured.files.map(async ({ body }) => {
-    try { return { record: await parseKnowledgeMarkdown(body, root), body }; }
+    try { return { record: await parseKnowledgeMarkdown(body, root, captured.schemaSource), body }; }
     catch { throw new DomainError('INDEX_VALIDATION_FAILED', 'A knowledge record failed validation.'); }
   }));
   validateRecordGraph(records.map(({ record }) => record));

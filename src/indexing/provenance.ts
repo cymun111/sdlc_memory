@@ -25,7 +25,7 @@ export type CheckoutDrift = z.infer<typeof checkoutDriftSchema>;
 export const normalizeBody = (value: string) => value.replace(/\r\n/g, '\n');
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
 type FileInput = { file: string; body: string };
-export interface BuildInputs { files: FileInput[]; contentFingerprint: string; schemaFingerprint: string; git: { commit: string | null; state: KnowledgeSnapshot['source_state'] } }
+export interface BuildInputs { files: FileInput[]; contentFingerprint: string; schemaFingerprint: string; schemaSource: string; git: { commit: string | null; state: KnowledgeSnapshot['source_state'] } }
 const contentHash = (files: FileInput[]) => hash(JSON.stringify(files.map(({ file, body }) => [file, hash(normalizeBody(body))]).sort((a, b) => a[0]! < b[0]! ? -1 : a[0]! > b[0]! ? 1 : 0)));
 function git(root: string, args: string[]) { return execFileSync('git', ['-C', root, ...args], { encoding: 'utf8', timeout: 5000, maxBuffer: 4 * 1024 * 1024, windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'] }).trim(); }
 function gitState(root: string): BuildInputs['git'] {
@@ -68,7 +68,7 @@ export async function captureBuildInputs(root: string): Promise<BuildInputs> {
       if (schema !== 'schema-unavailable' && normalizeBody(execFileSync('git', ['-C', root, 'show', `${state.commit}:schemas/knowledge.schema.json`], { encoding: 'utf8', timeout: 5000, maxBuffer: 4 * 1024 * 1024, stdio: ['ignore', 'pipe', 'ignore'] })) !== schema) state.state = 'dirty';
     } catch { state.state = 'dirty'; }
   }
-  return { files, contentFingerprint: contentHash(files), schemaFingerprint: hash(schema), git: state };
+  return { files, contentFingerprint: contentHash(files), schemaFingerprint: hash(schema), schemaSource: schema, git: state };
 }
 export async function assertBuildInputsUnchanged(root: string, original: BuildInputs): Promise<void> {
   try {

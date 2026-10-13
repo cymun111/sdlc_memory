@@ -20,9 +20,9 @@ function findSchemaRoot(): string {
   throw new Error('Cannot locate knowledge record schema from module path');
 }
 
-async function validatorFor(root = path.resolve(process.env.KNOWLEDGE_ROOT ?? findSchemaRoot())) {
+async function validatorFor(root = path.resolve(process.env.KNOWLEDGE_ROOT ?? findSchemaRoot()), capturedSchema?: string) {
   const schemaPath = path.join(root, 'schemas/knowledge.schema.json');
-  const source = await readFile(schemaPath, 'utf8');
+  const source = capturedSchema ?? await readFile(schemaPath, 'utf8');
   const cacheKey = schemaPath + ':' + createHash('sha256').update(source).digest('hex');
   const cached = schemaCache.get(cacheKey);
   if (cached) return cached;
@@ -36,7 +36,7 @@ async function validatorFor(root = path.resolve(process.env.KNOWLEDGE_ROOT ?? fi
   catch (error) { schemaCache.delete(cacheKey); throw error; }
 }
 
-export async function parseKnowledgeMarkdown(markdown: string, knowledgeRoot?: string): Promise<KnowledgeRecord> {
+export async function parseKnowledgeMarkdown(markdown: string, knowledgeRoot?: string, capturedSchema?: string): Promise<KnowledgeRecord> {
   const normalized = markdown.replace(/\r\n/g, '\n');
   if (!normalized.startsWith('---\n')) throw new Error('Missing YAML front matter');
   const end = normalized.indexOf('\n---', 4);
@@ -47,7 +47,7 @@ export async function parseKnowledgeMarkdown(markdown: string, knowledgeRoot?: s
   if (frontMatter === null || typeof frontMatter !== 'object' || Array.isArray(frontMatter)) {
     throw new Error('Front matter must be a plain object');
   }
-  const validateRecord = await validatorFor(knowledgeRoot);
+  const validateRecord = await validatorFor(knowledgeRoot, capturedSchema);
   if (!validateRecord(frontMatter)) {
     throw new Error(ajv.errorsText(validateRecord.errors, { separator: '; ' }));
   }
