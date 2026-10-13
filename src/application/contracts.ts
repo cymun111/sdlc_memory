@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import { publicKnowledgeSnapshotSchema as knowledgeSnapshotSchema, checkoutDriftSchema, applicationSourceSchema } from '../indexing/provenance.js';
+import { conflictReferenceSchema } from '../capture/conflicts.js';
+import { policyIssueSchema } from '../retrieval/policy-contracts.js';
 
 export const contractVersion = 1 as const;
 const text = z.string().min(1).max(200);
@@ -25,8 +27,8 @@ const scope = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('repo'), repo_id: repoId }).strict(),
   z.object({ kind: z.literal('cross-repo'), repo_ids: z.array(repoId).min(1).max(100) }).strict()
 ]);
-const summary = z.object({ id: text, title: z.string().max(1000), summary: z.string().max(600), type: z.enum(['observed-behavior', 'approved-policy', 'decision', 'practice', 'troubleshooting', 'overview']), scope, matched_reasons: z.array(text).max(100), evidence: z.array(z.record(z.string(), z.unknown())).max(100), freshness: text, relationships: z.array(z.object({ type: text, target: text }).strict()).max(100) }).strict();
-export const contextOutput = z.object({ status: z.enum(['ok', 'CONTEXT_BUDGET_EXCEEDED']), knowledge_revision: text, index_generation: text, knowledge_snapshot: knowledgeSnapshotSchema, checkout_drift: checkoutDriftSchema, application_source: applicationSourceSchema, results: z.array(summary).max(100), truncated: z.boolean(), estimated_tokens: z.number().int().nonnegative(), estimator_name: text, unresolved_conflicts: z.array(text).max(100), omitted_result_count: z.number().int().nonnegative(), omitted_mandatory_ids: z.array(text).max(12).optional() }).strict();
+const summary = z.object({ id: text, title: z.string().max(1000), summary: z.string().max(600), type: z.enum(['observed-behavior', 'approved-policy', 'decision', 'practice', 'troubleshooting', 'overview']), scope, matched_reasons: z.array(text).max(100), evidence: z.array(z.record(z.string(), z.unknown())).max(100), freshness: text, relationships: z.array(z.object({ type: text, target: text }).strict()).max(100), editorial_status: z.enum(['verified', 'disputed', 'superseded']), normative: z.boolean(), requires_review: z.boolean() }).strict();
+export const contextOutput = z.object({ status: z.enum(['ok', 'CONTEXT_BUDGET_EXCEEDED', 'POLICY_REVIEW_REQUIRED']), knowledge_revision: text, index_generation: text, knowledge_snapshot: knowledgeSnapshotSchema, checkout_drift: checkoutDriftSchema, application_source: applicationSourceSchema, results: z.array(summary).max(100), truncated: z.boolean(), estimated_tokens: z.number().int().nonnegative(), estimator_name: text, unresolved_conflicts: z.array(text).max(12), conflicts: z.array(conflictReferenceSchema).max(12), policy_issues: z.array(policyIssueSchema).max(12), omitted_conflict_count: z.number().int().nonnegative(), omitted_result_count: z.number().int().nonnegative(), omitted_mandatory_ids: z.array(text).max(12).optional() }).strict();
 export const setupOutput = z.object({ ...version, state: z.literal('planned'), repo_id: repoId, transport: z.literal('stdio'), writes: z.array(z.enum(['local-registration', 'repository-map', 'client-configuration'])).max(3), external_edits_authorized: z.literal(false) }).strict();
 export const readinessOutput = z.object({ ...version, repo_id: repoId, state: z.enum(['registered', 'index-available']), index_generation: text.nullable(), knowledge_snapshot: knowledgeSnapshotSchema.nullable(), checkout_drift: checkoutDriftSchema.nullable(), context_delivery_verified: z.literal(false), scope_mode: z.literal('local-config-allowlist') }).strict();
 export const retrievalOutput = z.object({ ...version, repo_id: repoId, context: contextOutput }).strict();
@@ -36,7 +38,7 @@ export const captureOutput = z.discriminatedUnion('state', [
   z.object({ ...version, repo_id: repoId, state: z.literal('candidate'), candidate_id: text, receipt_id: text, content_hash: z.string().regex(/^[a-f0-9]{64}$/), duplicate: z.boolean() }).strict(),
   z.object({ ...version, repo_id: repoId, state: z.enum(['published', 'rejected']), candidate_id: text, receipt_id: text, content_hash: z.string().regex(/^[a-f0-9]{64}$/), duplicate: z.boolean() }).strict()
 ]);
-export const errorOutput = z.object({ ...version, code: z.enum(['UNSUPPORTED_VERSION', 'VALIDATION_ERROR', 'NOT_FOUND', 'CONFLICT', 'CAPABILITY_UNAVAILABLE', 'FORBIDDEN', 'INDEX_UNAVAILABLE', 'INDEX_REBUILD_REQUIRED', 'INDEX_SOURCE_CHANGED', 'INDEX_QUERY_FAILED', 'INDEX_SOURCE_UNAVAILABLE', 'INDEX_VALIDATION_FAILED', 'INDEX_BUILD_FAILED', 'CONTEXT_BUDGET_EXCEEDED', 'INTERNAL_ERROR']), message: z.string().max(300), retryable: z.boolean() }).strict();
+export const errorOutput = z.object({ ...version, code: z.enum(['UNSUPPORTED_VERSION', 'VALIDATION_ERROR', 'NOT_FOUND', 'CONFLICT', 'CAPABILITY_UNAVAILABLE', 'FORBIDDEN', 'CONFLICT_STATE_UNAVAILABLE', 'INDEX_UNAVAILABLE', 'INDEX_REBUILD_REQUIRED', 'INDEX_SOURCE_CHANGED', 'INDEX_QUERY_FAILED', 'INDEX_SOURCE_UNAVAILABLE', 'INDEX_VALIDATION_FAILED', 'INDEX_BUILD_FAILED', 'CONTEXT_BUDGET_EXCEEDED', 'INTERNAL_ERROR']), message: z.string().max(300), retryable: z.boolean() }).strict();
 
 export type IntegrationError = z.infer<typeof errorOutput>;
 export class IntegrationContractError extends Error {
