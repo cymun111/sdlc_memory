@@ -37,6 +37,13 @@ export const fixtureSchema = z.object({ version: z.literal('1.0.0'), description
   }
   const ids = new Set([...fixture.records.map((item) => item.id), 'orchard.choicea', 'orchard.choiceb']);
   for (const item of fixture.tasks) for (const id of item.expected) if (!ids.has(id)) context.addIssue({ code: 'custom', message: `Unknown expected record ${id}` });
+  for (const item of fixture.tasks) {
+    for (const id of item.baseline_missing) if (!item.expected.includes(id)) context.addIssue({ code: 'custom', message: `Baseline miss is not expected: ${id}` });
+    for (const id of item.expected) {
+      const definition = fixture.records.find((candidate) => candidate.id === id);
+      if (definition && !applicable(definition, item.repo)) context.addIssue({ code: 'custom', message: `Expected record is outside task scope: ${id}` });
+    }
+  }
   for (const item of fixture.records) for (const edge of item.relationships) if (!ids.has(edge.target)) context.addIssue({ code: 'custom', message: `Unknown relationship ${edge.target}` });
 });
 type Fixture = z.infer<typeof fixtureSchema>;
