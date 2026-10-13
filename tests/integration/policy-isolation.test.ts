@@ -11,6 +11,9 @@ import { createConflictReport } from '../../src/capture/review.js';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createMcpServer } from '../../src/mcp/server.js';
+import * as conflictStore from '../../src/capture/conflicts.js';
+import { createHash } from 'node:crypto';
+import { KnowledgeApplication } from '../../src/application/service.js';
 
 let root: string;
 let paths: ResolvedPaths;
@@ -125,4 +128,40 @@ it('an SDK client gets policy-review status and explicit historical reads', asyn
     const history = await client.callTool({ name: 'get_knowledge', arguments: { id: 'alpha.policy', repo_id: 'alpha', include_history: true } });
     expect(history.structuredContent).toMatchObject({ ok: true, data: { record: { editorial_status: 'disputed', normative: false } } });
   } finally { await client.close(); await server.close(); }
+});
+it('only the configured repository owner can resolve a report and stale hashes are rejected', async () => {
+  await record('alpha.a'); await record('alpha.b'); await index();
+  const report = createConflictReport(paths, { repoId: 'alpha', recordIds: ['alpha.a', 'alpha.b'], explanation: 'Synthetic report for local review.' });
+  const expectedHash = createHash('sha256').update(await readFile(report.path)).digest('hex');
+  const request = { repoId: 'alpha', id: report.id, expectedHash, state: 'resolved', reason: 'Owner checked the fictional evidence.' };
+  paths.config.principal = 'intruder';
+  await expect((conflictStore as any).resolveConflictReport(paths, request)).rejects.toMatchObject({ code: 'FORBIDDEN' });
+  paths.config.principal = 'local-owner';
+  expect(await (conflictStore as any).resolveConflictReport(paths, request)).toMatchObject({ state: 'resolved' });
+  expect((await context()).unresolved_conflicts).toEqual([]);
+  expect(JSON.parse(await readFile(report.path, 'utf8')).resolution.approver).toBe('local-owner');
+  await expect((conflictStore as any).resolveConflictReport(paths, { ...request, state: 'rejected' })).rejects.toMatchObject({ code: 'CONFLICT' });
+});
+it('report creation uses canonical repository identity and rejects duplicate record IDs before writes', async () => {
+  await record('alpha.a'); await record('alpha.b'); await index(); paths.config.repositories[0]!.aliases.push('old-alpha');
+  const report = createConflictReport(paths, { repoId: 'old-alpha', recordIds: ['alpha.a', 'alpha.b'], explanation: 'Synthetic alias report.' });
+  expect((await context()).unresolved_conflicts).toContain(report.id);
+  expect(() => createConflictReport(paths, { repoId: 'alpha', recordIds: ['alpha.a', 'alpha.a'], explanation: 'Invalid duplicate.' })).toThrow();
+});
+it('review dates and unverifiable test evidence cannot be used to bypass policy review', async () => {
+  await record('alpha.due', { type: 'approved-policy', sources: [approval], review_after: '2000-01-01T00:00:00Z' });
+  await record('alpha.test-policy', { type: 'approved-policy', sources: [approval, { kind: 'test', repo_id: 'alpha', commit: revision, path: 'policy.ts', test_id: 'unverified-test' }] }); await index();
+  expect((await service.get('alpha.due', 'alpha')).record.normative).toBe(false);
+  expect((await context() as any).policy_issues).toContainEqual({ id: 'alpha.test-policy', reason: 'unknown' });
+});
+it('the facade retains blocking policy state and tiny impossible budgets return an explicit error', async () => {
+  await record('alpha.policy', { type: 'approved-policy', status: 'disputed', sources: [approval] }); await index();
+  expect((await new KnowledgeApplication(paths).retrieve({ contract_version: 1, repo_id: 'alpha', task: 'Synthetic' })).context.status).toBe('POLICY_REVIEW_REQUIRED');
+  await expect(context({ max_tokens: 1 })).rejects.toMatchObject({ code: 'CONTEXT_BUDGET_EXCEEDED' });
+});
+it('more mandatory policies than the result limit cannot silently exceed the limit', async () => {
+  await record('alpha.policy-a', { type: 'approved-policy', sources: [approval] });
+  await record('alpha.policy-b', { type: 'approved-policy', sources: [approval] }); await index();
+  const result = await context({ max_results: 1 });
+  expect(result.status).toBe('CONTEXT_BUDGET_EXCEEDED'); expect(result.results.length).toBeLessThanOrEqual(1);
 });
