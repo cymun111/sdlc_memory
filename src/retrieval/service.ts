@@ -235,28 +235,32 @@ export class KnowledgeService {
       }
       const mandatory = policy;
       const initial = [...mandatory, ...matches.filter((match) => !mandatory.some((item) => item.stored.id === match.stored.id))];
+      const maxResults = Math.max(1, Math.min(input.max_results ?? this.paths.config.budgets.maxResults, this.paths.config.budgets.maxResults));
+      const maxTokens = Math.max(1, Math.min(input.max_tokens ?? this.paths.config.budgets.maxTokens, this.paths.config.budgets.maxTokens));
+      const maxDepth = Math.max(0, Math.min(input.depth ?? this.paths.config.budgets.maxDepth, this.paths.config.budgets.maxDepth));
+      const maxVisited = this.paths.config.budgets.maxVisited;
+      const relatedIds = this.#expand(database, initial.map(({ stored }) => stored.id), records, maxDepth);
       // Show accessible counterpart records when a matched record or applicable policy is conflicted.
-      const seeds = new Set([...initial.map(({ record }) => record.id), ...policies.map(({ record }) => record.id)]);
+      const seeds = new Set([...initial.map(({ record }) => record.id), ...policies.map(({ record }) => record.id), ...relatedIds]);
+      let incomplete = seeds.size > maxVisited;
       let changed = true;
       while (changed) {
         changed = false;
-        for (const ref of allConflicts) if (ref.record_ids.some((id) => seeds.has(id))) for (const id of ref.record_ids) if (!seeds.has(id)) { seeds.add(id); changed = true; }
+        for (const ref of allConflicts) {
+          if (!ref.record_ids.some((id) => seeds.has(id))) continue;
+          for (const id of ref.record_ids) {
+            if (seeds.has(id)) continue;
+            if (seeds.size >= maxVisited) { incomplete = true; continue; }
+            seeds.add(id); changed = true;
+          }
+        }
       }
       const conflicts = allConflicts.filter((ref) => ref.record_ids.some((id) => seeds.has(id)));
       for (const id of seeds) {
         const item = records.find(({ record }) => record.id === id);
-        if (item && !initial.some(({ record }) => record.id === id)) initial.push({ ...item, reason: 'conflicting-record' });
+        if (item && !initial.some(({ record }) => record.id === id)) initial.push({ ...item, reason: relatedIds.includes(id) ? 'curated-graph-neighbor' : 'conflicting-record' });
       }
-      const maxResults = Math.max(1, Math.min(input.max_results ?? this.paths.config.budgets.maxResults, this.paths.config.budgets.maxResults));
-      const maxTokens = Math.max(1, Math.min(input.max_tokens ?? this.paths.config.budgets.maxTokens, this.paths.config.budgets.maxTokens));
-      const maxDepth = Math.max(0, Math.min(input.depth ?? this.paths.config.budgets.maxDepth, this.paths.config.budgets.maxDepth));
-      const relatedIds = this.#expand(database, initial.map(({ stored }) => stored.id), records, maxDepth);
       const expanded = [...initial];
-      for (const id of relatedIds) {
-        if (expanded.length >= maxResults) break;
-        const item = records.find(({ stored }) => stored.id === id);
-        if (item && !expanded.some(({ stored }) => stored.id === id)) expanded.push({ ...item, reason: 'curated-graph-neighbor' });
-      }
       const mandatoryIds = new Set(mandatory.map(({ stored }) => stored.id));
       const source = { repo_id: target!.id, requested_revision: input.source_revision ?? null };
       const total = new Set([...initial.map(({ record }) => record.id), ...relatedIds]).size;
@@ -267,7 +271,7 @@ export class KnowledgeService {
         if (!fits(failure)) throw new DomainError('CONTEXT_BUDGET_EXCEEDED', 'Required policy or conflict references cannot fit the requested context budget.');
         return failure;
       };
-      if (mandatoryIds.size > maxResults) return budgetFailure();
+      if (incomplete || mandatoryIds.size > maxResults) return budgetFailure();
       const selected: KnowledgeSummary[] = [];
       for (const item of expanded) {
         if (selected.length >= maxResults && !mandatoryIds.has(item.stored.id)) continue;

@@ -60,7 +60,8 @@ export async function inspectConflictReport(paths: ResolvedPaths, repoId: string
   const repo = ownerRepository(paths, repoId); const loaded = loadReport(paths, repo.id, id);
   const { KnowledgeService } = await import('../retrieval/service.js');
   const service = new KnowledgeService(paths);
-  for (const recordId of loaded.report.record_ids) await service.get(recordId, repo.id, 1, true);
+  // Explicit owner review uses the trusted principal's full allowlist, not a task applicability filter.
+  for (const recordId of loaded.report.record_ids) await service.get(recordId, undefined, 1, true);
   return { repo_id: repo.id, hash: loaded.hash, report: loaded.report };
 }
 const resolutionInput = z.object({ repoId: z.string().min(1).max(200), id: z.uuid(), expectedHash: z.string().regex(/^[a-f0-9]{64}$/), state: z.enum(['resolved', 'rejected']), reason: z.string().trim().min(1).max(4000) }).strict();
