@@ -35,3 +35,8 @@ it('rejects relevance annotations in denied task scopes', async () => {
   const denied = structuredClone(fixture); denied.tasks[0].expected.push('vault.secret');
   expect(() => evaluator.fixtureSchema.parse(denied)).toThrow(/Expected record is outside task scope/);
 });
+it.each(['../../escape', 'nested/record', 'C:\\outside', 'a..b'])('rejects unsafe record identifier %s before fixture materialization', async (id) => {
+  const fixture = JSON.parse(await readFile(evaluator.defaultFixturePath, 'utf8'));
+  fixture.records.at(-1).id = id; // Unreferenced record avoids unrelated oracle-reference errors.
+  expect(() => evaluator.fixtureSchema.parse(fixture)).toThrow();
+});
