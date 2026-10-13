@@ -25,3 +25,13 @@ it('gates an unexpected lost strict-term match while retaining explicitly annota
   expect(baselineFailures(['retry'], ['retry'], [])).toEqual([]);
   expect(baselineFailures([], [], ['private'])).toEqual(['Unexpected baseline record private']);
 });
+it('rejects baseline-miss annotations outside the relevance oracle', async () => {
+  const fixture = JSON.parse(await readFile(evaluator.defaultFixturePath, 'utf8'));
+  const invalidMiss = structuredClone(fixture); invalidMiss.tasks[0].baseline_missing = ['studio.render'];
+  expect(() => evaluator.fixtureSchema.parse(invalidMiss)).toThrow(/Baseline miss is not expected/);
+});
+it('rejects relevance annotations in denied task scopes', async () => {
+  const fixture = JSON.parse(await readFile(evaluator.defaultFixturePath, 'utf8'));
+  const denied = structuredClone(fixture); denied.tasks[0].expected.push('vault.secret');
+  expect(() => evaluator.fixtureSchema.parse(denied)).toThrow(/Expected record is outside task scope/);
+});
