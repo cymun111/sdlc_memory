@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse } from 'yaml';
+import { createHash } from 'node:crypto';
 import type { KnowledgeRecord } from '../core/types.js';
 
 const ajv = new Ajv2020({ allErrors: true, strict: false, validateFormats: false });
@@ -19,20 +20,23 @@ function findSchemaRoot(): string {
   throw new Error('Cannot locate knowledge record schema from module path');
 }
 
-async function validatorFor(root = path.resolve(process.env.KNOWLEDGE_ROOT ?? findSchemaRoot())) {
+async function validatorFor(root = path.resolve(process.env.KNOWLEDGE_ROOT ?? findSchemaRoot()), capturedSchema?: string) {
   const schemaPath = path.join(root, 'schemas/knowledge.schema.json');
-  const cached = schemaCache.get(schemaPath);
+  const source = capturedSchema ?? await readFile(schemaPath, 'utf8');
+  const cacheKey = schemaPath + ':' + createHash('sha256').update(source).digest('hex');
+  const cached = schemaCache.get(cacheKey);
   if (cached) return cached;
-  const pending = readFile(schemaPath, 'utf8').then((source) => {
+  const pending = Promise.resolve().then(() => {
     const compiler = new Ajv2020({ allErrors: true, strict: false, validateFormats: false });
     return compiler.compile(JSON.parse(source) as object);
   });
-  schemaCache.set(schemaPath, pending);
+  for (const key of schemaCache.keys()) if (key.startsWith(schemaPath + ':')) schemaCache.delete(key);
+  schemaCache.set(cacheKey, pending);
   try { return await pending; }
-  catch (error) { schemaCache.delete(schemaPath); throw error; }
+  catch (error) { schemaCache.delete(cacheKey); throw error; }
 }
 
-export async function parseKnowledgeMarkdown(markdown: string, knowledgeRoot?: string): Promise<KnowledgeRecord> {
+export async function parseKnowledgeMarkdown(markdown: string, knowledgeRoot?: string, capturedSchema?: string): Promise<KnowledgeRecord> {
   const normalized = markdown.replace(/\r\n/g, '\n');
   if (!normalized.startsWith('---\n')) throw new Error('Missing YAML front matter');
   const end = normalized.indexOf('\n---', 4);
@@ -43,7 +47,7 @@ export async function parseKnowledgeMarkdown(markdown: string, knowledgeRoot?: s
   if (frontMatter === null || typeof frontMatter !== 'object' || Array.isArray(frontMatter)) {
     throw new Error('Front matter must be a plain object');
   }
-  const validateRecord = await validatorFor(knowledgeRoot);
+  const validateRecord = await validatorFor(knowledgeRoot, capturedSchema);
   if (!validateRecord(frontMatter)) {
     throw new Error(ajv.errorsText(validateRecord.errors, { separator: '; ' }));
   }

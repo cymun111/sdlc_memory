@@ -5,6 +5,7 @@ import path from 'node:path';
 import { z } from 'zod';
 import type { ResolvedPaths, RegisteredRepo } from '../core/config.js';
 import { DomainError } from '../capture/candidate-store.js';
+import { optionalProvenance } from '../indexing/provenance.js';
 
 const sections = ['files', 'packages', 'entry_points', 'commands', 'tests', 'languages'] as const;
 const evidence = z.object({ path: z.string(), blob_hash: z.string().regex(/^[a-f0-9]{40,64}$/) });
@@ -116,7 +117,8 @@ export async function getRepositoryMap(paths: ResolvedPaths, request: unknown) {
     catch { throw new DomainError('VALIDATION_ERROR', 'Invalid or stale map cursor; restart without cursor'); }
   }
   const page = selected.slice(offset, offset + input.limit);
-  const result = () => ({ repo_id: repo.id, source_revision: map.source_revision, extractor_version: map.extractor_version, generated_at: map.generated_at, freshness: { source_available: sourceAvailable, head_changed: head !== null && head !== map.source_revision, dirty_worktree: dirty, head_revision: head }, truncated: map.truncated, warnings: map.warnings, summary, counts, items: page, next_cursor: offset + page.length < selected.length ? Buffer.from(JSON.stringify({ snapshot, offset: offset + page.length })).toString('base64url') : null });
+  const metadata = await optionalProvenance(paths.knowledgeRoot, paths.runtimeRoot);
+  const result = () => ({ ...metadata, repo_id: repo.id, source_revision: map.source_revision, extractor_version: map.extractor_version, generated_at: map.generated_at, freshness: { source_available: sourceAvailable, head_changed: head !== null && head !== map.source_revision, dirty_worktree: dirty, head_revision: head }, truncated: map.truncated, warnings: map.warnings, summary, counts, items: page, next_cursor: offset + page.length < selected.length ? Buffer.from(JSON.stringify({ snapshot, offset: offset + page.length })).toString('base64url') : null });
   while (Buffer.byteLength(JSON.stringify({ ok: true, data: result() })) > paths.config.budgets.maxBytes) { if (page.length <= 1) throw new DomainError('CONTEXT_BUDGET_EXCEEDED', 'Map page exceeds byte budget; narrow the section or increase the configured budget'); page.pop(); }
   return result();
 }

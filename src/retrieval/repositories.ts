@@ -6,6 +6,7 @@ import { z } from 'zod';
 import type { ResolvedPaths } from '../core/config.js';
 import { DomainError } from '../capture/candidate-store.js';
 import { parseKnowledgeMarkdown } from '../validation/record.js';
+import { provenance, publicKnowledgeSnapshotSchema, checkoutDriftSchema, type KnowledgeSnapshotMetadata, type CheckoutDrift } from '../indexing/provenance.js';
 
 export const repositoryListInput = z.object({
   query: z.string().trim().max(200).optional(),
@@ -23,7 +24,8 @@ export const repositoryListOutput = z.object({
   repositories: z.array(repositoryEntry),
   next_cursor: z.string().nullable(),
   index_generation: z.string().nullable(),
-  index_status: z.enum(['available', 'unavailable'])
+  index_status: z.enum(['available', 'unavailable']),
+  knowledge_snapshot: publicKnowledgeSnapshotSchema.nullable(), checkout_drift: checkoutDriftSchema.nullable(), knowledge_revision: z.string().nullable()
 });
 type Entry = z.infer<typeof repositoryEntry>;
 const digest = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
@@ -40,6 +42,9 @@ export async function listRepositories(paths: ResolvedPaths, request: unknown = 
   }]));
   let generation: string | null = null;
   let status: 'available' | 'unavailable' = 'unavailable';
+  let knowledge_snapshot: KnowledgeSnapshotMetadata | null = null;
+  let checkout_drift: CheckoutDrift | null = null;
+  let knowledge_revision: string | null = null;
   let indexFile: string | undefined;
   try {
     const active = JSON.parse(await readFile(path.join(paths.runtimeRoot, 'index-active.json'), 'utf8')) as { database?: unknown };
@@ -56,6 +61,8 @@ export async function listRepositories(paths: ResolvedPaths, request: unknown = 
       const manifest = database.prepare('SELECT generation FROM index_manifest WHERE singleton = 1').get();
       if (!manifest) throw new Error('Missing index manifest');
       generation = String(manifest.generation);
+      const metadata = provenance(database, paths.knowledgeRoot);
+      knowledge_snapshot = metadata.knowledge_snapshot; checkout_drift = metadata.checkout_drift; knowledge_revision = metadata.knowledge_revision;
       // Query each allowed scope before parsing metadata. Other scopes never enter the response.
       for (const repo of repos) {
         const rows = database.prepare("SELECT body, content_hash FROM records WHERE status = 'verified' AND type = 'overview' AND scope_kind = 'repo' AND json_extract(scope_json, '$.repo_id') = ? ORDER BY id").all(repo.id);
@@ -67,7 +74,8 @@ export async function listRepositories(paths: ResolvedPaths, request: unknown = 
         }
       }
       status = 'available';
-    } catch {
+    } catch (error) {
+      if (error instanceof DomainError) throw error;
       throw new DomainError('INDEX_UNAVAILABLE', 'Cannot read repository overviews; rebuild with knowledge index --full');
     } finally { database?.close(); }
   }
@@ -84,7 +92,7 @@ export async function listRepositories(paths: ResolvedPaths, request: unknown = 
   }
   const result = (selected: Entry[]) => {
     const next = offset + selected.length;
-    return { repositories: selected, next_cursor: next < filtered.length ? Buffer.from(JSON.stringify({ snapshot, offset: next })).toString('base64url') : null, index_generation: generation, index_status: status };
+    return { repositories: selected, next_cursor: next < filtered.length ? Buffer.from(JSON.stringify({ snapshot, offset: next })).toString('base64url') : null, index_generation: generation, index_status: status, knowledge_snapshot, checkout_drift, knowledge_revision };
   };
   const selected = filtered.slice(offset, offset + input.limit);
   while (Buffer.byteLength(JSON.stringify({ ok: true, data: result(selected) }), 'utf8') > paths.config.budgets.maxBytes) {

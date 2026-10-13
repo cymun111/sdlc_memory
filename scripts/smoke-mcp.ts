@@ -60,6 +60,14 @@ try {
   const context = await call('get_task_context', { repo_id: discovery.repositories[0].id, task: 'Synthetic' });
   assert.equal(context.status, 'ok');
   assert.equal(context.index_generation, active.generation);
+  assert.equal(context.knowledge_snapshot.generation, active.generation);
+  assert.equal(context.knowledge_snapshot.source_state, 'unversioned');
+  assert.match(context.knowledge_snapshot.content_fingerprint, /^[a-f0-9]{64}$/);
+  assert.equal(context.checkout_drift.state, 'matched');
+  assert.deepEqual(context.application_source, { repo_id: 'test-app', requested_revision: null });
+  assert.deepEqual(discovery.knowledge_snapshot, context.knowledge_snapshot);
+  assert.deepEqual(map.knowledge_snapshot, context.knowledge_snapshot);
+  assert.ok(!('record_count' in context.knowledge_snapshot));
   assert.deepEqual(new Set(context.results.map((record: { id: string }) => record.id)), new Set(['test.first', 'test.second']));
   assert.match((await call('get_knowledge', { id: 'test.first', repo_id: 'test-app' })).body, /Fictional smoke body/);
   assert.equal((await call('get_related', { id: 'test.first', repo_id: 'test-app' })).nodes[0].id, 'test.second');
@@ -90,7 +98,7 @@ try {
   const unavailable = await client.callTool({ name: 'search_knowledge', arguments: { repo_id: 'test-app', query: 'Synthetic' } });
   assert.equal(unavailable.isError, true);
   assert.equal((unavailable.structuredContent as any).data.error.code, 'INDEX_UNAVAILABLE');
-  console.log('MCP stdio passed: nine-tool discovery, repository/map/CLI parity, scoped reads, relationships, generation identity, candidate updates/replay, and explicit query/unavailable-index failures.');
+  console.log('MCP stdio passed: nine-tool discovery, repository/map/CLI parity, scoped reads, snapshot identity and drift, candidate updates/replay, and explicit query/unavailable-index failures.');
 } finally {
   await client.close();
   await rm(root, { recursive: true, force: true });

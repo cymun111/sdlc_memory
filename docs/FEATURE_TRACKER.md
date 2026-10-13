@@ -5,7 +5,7 @@ Rewritten: 2026-10-13
 
 SDLC Memory will soon be integrated into SDLC Command. The target outcome is onboarding an existing Git repository into the SDLC Command workflow, with knowledge setup as the final repository-configuration step. Every feature below supports repeatable setup, scoped context before planning, durable capture, reviewed knowledge, or reliable operation of that integration.
 
-Keep implementation standalone until a working local integration is verified; physical migration follows the pilot. SDLC Command's source has not been inspected for this plan. Verify its extension points, configuration format, commands, and package boundaries before choosing an adapter. This document does not claim integration exists. The [PRD](PRD.md) remains the broader V1 baseline; prioritization does not remove its requirements. See [README](../README.md) for current capabilities.
+Keep implementation standalone until a working local integration is verified; physical migration follows the pilot. AEF-001 records an initial read-only SDLC Command source inspection in the [integration design](sdlc-command-integration.md). Reverify its extension points, configuration format, commands, and package boundaries before wiring the adapter. This document does not claim integration exists. The [PRD](PRD.md) remains the broader V1 baseline; prioritization does not remove its requirements. See [README](../README.md) for current capabilities.
 
 ## Delivery rules and gates
 
@@ -27,7 +27,7 @@ IDs are renumbered by priority at the user's explicit request. The mapping below
 | --- | --- | --- | --- | --- |
 | AEF-001 | Versioned SDLC Command integration contract | P0 | Done | None |
 | AEF-002 | Explicit failures and safe index rebuilds | P0 | Done | AEF-001 |
-| AEF-003 | Snapshot provenance and drift reporting | P0 | Planned | AEF-001, AEF-002 |
+| AEF-003 | Snapshot provenance and drift reporting | P0 | Done | AEF-001, AEF-002 |
 | AEF-004 | Conflict visibility, policies, and response isolation | P0 | Planned | AEF-001, AEF-003 |
 | AEF-005 | Multi-repository retrieval evaluation | P1 | Planned | AEF-002 through AEF-004 |
 | AEF-006 | Repository discovery through MCP | P1 | Done | Existing local configuration |
@@ -100,7 +100,7 @@ IDs are renumbered by priority at the user's explicit request. The mapping below
 
 ## AEF-003: Snapshot provenance and drift reporting
 
-**Priority / status:** P0 / Planned.
+**Priority / status:** P0 / Done for local immutable snapshots and moment-in-time drift reporting.
 **Outcome:** Responses identify the knowledge snapshot actually queried.
 
 **Acceptance criteria:**
@@ -114,6 +114,8 @@ IDs are renumbered by priority at the user's explicit request. The mapping below
 **Implementation details:** Extend manifest schemas and read immutable provenance from the database instead of live HEAD in `manifest()`. Define normalized hashing/order and rebuild behavior for existing indexes.
 
 **Integration contribution:** Attaches accurate evidence to SDLC Command setup/task receipts.
+
+**Completion scope:** Versioned stored manifests, normalized content/schema hashes, honest clean/dirty/unversioned/unavailable labels, captured-byte validation and change detection, public metadata without global counts, scoped application revisions, discovery/map/facade/CLI/session metadata, and explicit legacy rebuild behavior. See [snapshot semantics](snapshot-provenance.md) and [TDD evidence](aef-003-tdd.md). Continuous freshness, source locking, measured latency and shared concurrency guarantees remain follow-ups.
 
 ## AEF-004: Conflict visibility, policies, and response isolation
 
@@ -419,6 +421,7 @@ Historical evidence is preserved from the previous tracker and establishes local
 | --- | --- | --- | --- | --- | --- |
 | AEF-001 | New | 2026-10-13 | [Schemas/facade](../src/application/index.ts), [integration design](sdlc-command-integration.md) | [Consumer tests](../tests/integration/application.test.ts); build, typecheck, tests, fixtures, and MCP smoke | Local contract only; plan-only setup; delivery unconsumed; no-learning acknowledgement non-durable; broader service correctness work remains planned |
 | AEF-002 | New | 2026-10-13 | [Index builder](../src/indexing/build-index.ts), [reader](../src/indexing/database.ts), [graph validation](../src/validation/graph.ts), retrieval/facade | [TDD checkpoints and results](aef-002-tdd.md); 68 tests, build/typecheck/fixtures/SDK stdio passed; feature coverage gates passed | Local controlled failure recovery; best-effort status; hard-kill/power-loss and concurrent-writer recovery remain follow-ups |
+| AEF-003 | New | 2026-10-13 | [Provenance schemas/services](../src/indexing/provenance.ts), indexing, retrieval, facade/CLI/receipts | [TDD checkpoints](aef-003-tdd.md); 88 tests, build/typecheck/fixtures/SDK smoke passed; provenance and indexing/graph coverage gates passed | Legacy indexes require full rebuild; live drift is moment-in-time; no source locking or continuous freshness; no receiving-system wiring |
 | AEF-006 | AEF-001 | 2026-10-01 | [Discovery service](../src/retrieval/repositories.ts), MCP/CLI | [Discovery tests](../tests/integration/repositories.test.ts), [SDK smoke](../scripts/smoke-mcp.ts); prior tracker records build, typecheck, 30 tests, fixtures, and smoke passing | Local allowlist; live freshness unchecked; SDLC Command integration unverified |
 | AEF-007 | AEF-002 | 2026-10-01 | [Map service](../src/retrieval/repository-map.ts), [schema](../schemas/repository-map.schema.json), MCP/CLI | [Map tests](../tests/integration/repository-map.test.ts), [SDK smoke](../scripts/smoke-mcp.ts); prior tracker records build, typecheck, 35 tests, fixtures, and smoke passing | Git/npm only; explicit rebuild; no symbols/call graph; integration unverified |
 

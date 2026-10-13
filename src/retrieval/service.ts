@@ -6,10 +6,11 @@ import type { KnowledgeRecord } from '../core/types.js';
 import { openIndex } from '../indexing/database.js';
 import { parse } from 'yaml';
 import { DomainError } from '../capture/candidate-store.js';
+import { provenance, type KnowledgeSnapshotMetadata, type CheckoutDrift } from '../indexing/provenance.js';
 
 interface StoredRecord { id: string; title: string; summary: string; type: string; scope_kind: string; scope_json: string; status: string; body: string; content_hash: string }
 export interface KnowledgeSummary { id: string; title: string; summary: string; type: string; scope: unknown; matched_reasons: string[]; evidence: unknown[]; freshness: string; relationships: Array<{ type: string; target: string }> }
-export interface ContextBundle { status: 'ok' | 'CONTEXT_BUDGET_EXCEEDED'; knowledge_revision: string; index_generation: string; results: KnowledgeSummary[]; truncated: boolean; estimated_tokens: number; estimator_name: string; unresolved_conflicts: string[]; omitted_result_count: number; omitted_mandatory_ids?: string[] }
+export interface ContextBundle { status: 'ok' | 'CONTEXT_BUDGET_EXCEEDED'; knowledge_revision: string; index_generation: string; knowledge_snapshot: KnowledgeSnapshotMetadata; checkout_drift: CheckoutDrift; application_source: { repo_id: string; requested_revision: string | null } | null; results: KnowledgeSummary[]; truncated: boolean; estimated_tokens: number; estimator_name: string; unresolved_conflicts: string[]; omitted_result_count: number; omitted_mandatory_ids?: string[] }
 
 function tokenize(query: string): string {
   const terms = query.toLowerCase().match(/[\p{L}\p{N}_.-]+/gu) ?? [];
@@ -63,8 +64,9 @@ function git(repo: RegisteredRepo, args: string[]): string {
   return execFileSync('git', ['-C', repo.path, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
 }
 
-function sourceFreshness(record: KnowledgeRecord, config: LocalConfig, sourceRevision?: string): string {
+function sourceFreshness(record: KnowledgeRecord, config: LocalConfig, sourceRevision?: string, sourceRepoId?: string): string {
   let sawCode = false;
+  let unchecked = !sourceRevision;
   for (const raw of record.sources) {
     if (raw.kind !== 'code') continue;
     sawCode = true;
@@ -74,23 +76,16 @@ function sourceFreshness(record: KnowledgeRecord, config: LocalConfig, sourceRev
     if (relative.startsWith('/') || relative.split('/').includes('..')) return 'unknown';
     try {
       const citedBlob = git(repo, ['rev-parse', `${raw.commit}:${relative}`]);
-      if (sourceRevision) {
+      if (sourceRevision && sourceRepoId === raw.repo_id) {
         const requestedBlob = git(repo, ['rev-parse', `${sourceRevision}:${relative}`]);
         if (citedBlob !== requestedBlob) return 'needs_revalidation';
         if (git(repo, ['status', '--porcelain', '--', relative])) return 'dirty_worktree';
         const currentBlob = git(repo, ['hash-object', '--', relative]);
         if (currentBlob !== requestedBlob) return 'dirty_worktree';
-      }
+      } else unchecked = true;
     } catch { return 'unknown'; }
   }
-  return sawCode ? (sourceRevision ? 'verified_at_revision' : 'revision_not_checked') : 'not_applicable';
-}
-
-function manifest(database: DatabaseSync, paths: ResolvedPaths): { knowledgeRevision: string; indexGeneration: string } {
-  const row = database.prepare('SELECT generation FROM index_manifest WHERE singleton = 1').get() as { generation?: string } | undefined;
-  let knowledgeRevision = 'unknown';
-  try { knowledgeRevision = execFileSync('git', ['-C', paths.knowledgeRoot, 'rev-parse', 'HEAD'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(); } catch { /* Unversioned local fixture checkout. */ }
-  return { knowledgeRevision, indexGeneration: row?.generation ?? 'unavailable' };
+  return sawCode ? (!unchecked ? 'verified_at_revision' : 'revision_not_checked') : 'not_applicable';
 }
 
 function tokenEstimate(value: unknown): number {
@@ -102,32 +97,29 @@ function summary(stored: StoredRecord, record: KnowledgeRecord, reason: string, 
 }
 
 export class KnowledgeService {
+  readonly #requestMetadata = new WeakMap<DatabaseSync, ReturnType<typeof provenance>>();
   constructor(readonly paths: ResolvedPaths) {}
+
+  #metadata(database: DatabaseSync) { return this.#requestMetadata.get(database)!; }
 
   async #withIndex<T>(callback: (database: DatabaseSync) => T): Promise<T> {
     const database = await openIndex(this.paths.runtimeRoot);
-    try { return callback(database); }
+    try {
+      this.#requestMetadata.set(database, provenance(database, this.paths.knowledgeRoot));
+      return callback(database);
+    }
     catch (error) {
       if (error instanceof DomainError) throw error;
       throw new DomainError('INDEX_QUERY_FAILED', 'The knowledge query failed; check or rebuild the active index.');
-    } finally { database.close(); }
+    } finally { this.#requestMetadata.delete(database); database.close(); }
   }
 
-  async #accessible(database: DatabaseSync, repoId?: string): Promise<{ target?: RegisteredRepo; records: Array<{ stored: StoredRecord; record: KnowledgeRecord }> }> {
-    const target = localRepo(this.paths.config, repoId);
-    if (repoId && !target) throw new DomainError('NOT_FOUND', 'Repository is not registered.');
-    const rows = database.prepare("SELECT * FROM records WHERE status = 'verified'").all() as Array<Record<string, SQLOutputValue>>;
-    const records = rows.map(decodeRecord).filter((stored): stored is StoredRecord => Boolean(stored)).map((stored) => ({ stored, record: parsedRecord(stored) }));
-    return { ...(target ? { target } : {}), records: records.filter(({ record }) => canRead(record, this.paths.config, target)) };
-  }
-
-  async search(query: string, repoId?: string, limit = 10): Promise<{ results: KnowledgeSummary[]; knowledge_revision: string; index_generation: string }> {
+  async search(query: string, repoId?: string, limit = 10) {
     return this.#withIndex((database) => {
       const accessible = this.#accessibleSync(database, repoId);
       const allowed = accessible.records.map(({ stored }) => stored.id);
       if (!allowed.length || !query.trim()) {
-        const meta = manifest(database, this.paths);
-        return { results: [], knowledge_revision: meta.knowledgeRevision, index_generation: meta.indexGeneration };
+        return { results: [], ...this.#metadata(database) };
       }
       const rows = database.prepare(`SELECT r.* FROM record_search s JOIN records r ON r.id = s.id
         WHERE record_search MATCH ? AND r.id IN (${allowed.map(() => '?').join(',')})
@@ -136,12 +128,11 @@ export class KnowledgeService {
         const record = parsedRecord(stored);
         return summary(stored, record, 'full-text-match', sourceFreshness(record, this.paths.config));
       });
-      const meta = manifest(database, this.paths);
-      return { results, knowledge_revision: meta.knowledgeRevision, index_generation: meta.indexGeneration };
+      return { results, ...this.#metadata(database) };
     });
   }
 
-  async get(id: string, repoId?: string, byteLimit = 8192): Promise<{ record: KnowledgeSummary; body: string; truncated: boolean; knowledge_revision: string; index_generation: string }> {
+  async get(id: string, repoId?: string, byteLimit = 8192) {
     return this.#withIndex((database) => {
       if (repoId && !localRepo(this.paths.config, repoId)) throw new DomainError('NOT_FOUND', 'Repository is not registered.');
       const stored = readRecord(database, id);
@@ -151,12 +142,11 @@ export class KnowledgeService {
       const limit = Math.max(1, Math.min(byteLimit, this.paths.config.budgets.maxBytes));
       const bytes = Buffer.from(stored.body, 'utf8');
       const body = bytes.length > limit ? bytes.subarray(0, limit).toString('utf8') : stored.body;
-      const meta = manifest(database, this.paths);
-      return { record: summary(stored, record, 'direct-lookup', sourceFreshness(record, this.paths.config)), body, truncated: bytes.length > limit, knowledge_revision: meta.knowledgeRevision, index_generation: meta.indexGeneration };
+      return { record: summary(stored, record, 'direct-lookup', sourceFreshness(record, this.paths.config)), body, truncated: bytes.length > limit, ...this.#metadata(database) };
     });
   }
 
-  async related(id: string, repoId?: string, relationTypes: string[] = [], depth = 1, limit = 12): Promise<{ nodes: KnowledgeSummary[]; edges: Array<{ source: string; type: string; target: string }>; visited_nodes: number; knowledge_revision: string; index_generation: string }> {
+  async related(id: string, repoId?: string, relationTypes: string[] = [], depth = 1, limit = 12) {
     return this.#withIndex((database) => {
       const access = this.#accessibleSync(database, repoId);
       const accessible = new Map(access.records.map(({ stored, record }) => [stored.id, { stored, record }]));
@@ -189,8 +179,7 @@ export class KnowledgeService {
         const item = accessible.get(node)!;
         return summary(item.stored, item.record, 'related-record', sourceFreshness(item.record, this.paths.config));
       });
-      const meta = manifest(database, this.paths);
-      return { nodes, edges: edges.slice(0, maximumVisited), visited_nodes: seen.size, knowledge_revision: meta.knowledgeRevision, index_generation: meta.indexGeneration };
+      return { nodes, edges: edges.slice(0, maximumVisited), visited_nodes: seen.size, ...this.#metadata(database) };
     });
   }
 
@@ -211,7 +200,7 @@ export class KnowledgeService {
           } catch { throw new DomainError('INDEX_QUERY_FAILED', 'The knowledge query failed; check or rebuild the active index.'); }
         }
       }
-      const mandatory = policy.filter(({ record }) => sourceFreshness(record, this.paths.config, input.source_revision) !== 'needs_revalidation');
+      const mandatory = policy.filter(({ record }) => sourceFreshness(record, this.paths.config, input.source_revision, target!.id) !== 'needs_revalidation');
       const initial = [...mandatory, ...matches.filter((match) => !mandatory.some((item) => item.stored.id === match.stored.id))];
       const maxResults = Math.max(1, Math.min(input.max_results ?? this.paths.config.budgets.maxResults, this.paths.config.budgets.maxResults));
       const maxTokens = Math.max(1, Math.min(input.max_tokens ?? this.paths.config.budgets.maxTokens, this.paths.config.budgets.maxTokens));
@@ -227,19 +216,19 @@ export class KnowledgeService {
       const selected: KnowledgeSummary[] = [];
       for (const item of expanded) {
         if (selected.length >= maxResults && !mandatoryIds.has(item.stored.id)) continue;
-        const next = summary(item.stored, item.record, item.reason, sourceFreshness(item.record, this.paths.config, input.source_revision));
-        const tentative = this.#bundle(database, selected.concat(next), initial.length + relatedIds.length, false);
+        const next = summary(item.stored, item.record, item.reason, sourceFreshness(item.record, this.paths.config, input.source_revision, target!.id));
+        const tentative = this.#bundle(database, selected.concat(next), initial.length + relatedIds.length, false, [], { repo_id: target!.id, requested_revision: input.source_revision ?? null });
         const estimatedTokens = tokenEstimate(tentative);
         const byteCount = Buffer.byteLength(JSON.stringify(tentative), 'utf8');
         if (estimatedTokens > maxTokens || byteCount > this.paths.config.budgets.maxBytes) {
           if (mandatoryIds.has(item.stored.id)) {
-            return this.#bundle(database, [], initial.length + relatedIds.length, true, [...mandatoryIds]);
+            return this.#bundle(database, [], initial.length + relatedIds.length, true, [...mandatoryIds], { repo_id: target!.id, requested_revision: input.source_revision ?? null });
           }
           continue;
         }
         selected.push(next);
       }
-      return this.#bundle(database, selected, initial.length + relatedIds.length, false);
+      return this.#bundle(database, selected, initial.length + relatedIds.length, false, [], { repo_id: target!.id, requested_revision: input.source_revision ?? null });
     });
   }
 
@@ -270,9 +259,8 @@ export class KnowledgeService {
     return [...seen].filter((id) => !roots.includes(id));
   }
 
-  #bundle(database: DatabaseSync, results: KnowledgeSummary[], total: number, exceeded: boolean, omittedMandatory: string[] = []): ContextBundle {
-    const meta = manifest(database, this.paths);
-    const bundle: ContextBundle = { status: exceeded ? 'CONTEXT_BUDGET_EXCEEDED' : 'ok', knowledge_revision: meta.knowledgeRevision, index_generation: meta.indexGeneration, results, truncated: total > results.length, estimated_tokens: 0, estimator_name: 'utf8-bytes-divided-by-3-conservative', unresolved_conflicts: [], omitted_result_count: Math.max(0, total - results.length) };
+  #bundle(database: DatabaseSync, results: KnowledgeSummary[], total: number, exceeded: boolean, omittedMandatory: string[] = [], application_source: ContextBundle['application_source'] = null): ContextBundle {
+    const bundle: ContextBundle = { status: exceeded ? 'CONTEXT_BUDGET_EXCEEDED' : 'ok', ...this.#metadata(database), application_source, results, truncated: total > results.length, estimated_tokens: 0, estimator_name: 'utf8-bytes-divided-by-3-conservative', unresolved_conflicts: [], omitted_result_count: Math.max(0, total - results.length) };
     if (omittedMandatory.length) bundle.omitted_mandatory_ids = omittedMandatory.slice(0, 12);
     bundle.estimated_tokens = tokenEstimate(bundle);
     return bundle;
