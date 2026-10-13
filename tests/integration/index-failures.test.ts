@@ -12,6 +12,7 @@ import { createMcpServer } from '../../src/mcp/server.js';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { validateKnowledgeTree } from '../../src/validation/validate-tree.js';
+import { openIndex } from '../../src/indexing/database.js';
 
 const faults = vi.hoisted(() => ({ readDirectory: '', readRecord: '', switchManifest: false }));
 vi.mock('node:fs/promises', async (importOriginal) => {
@@ -165,4 +166,21 @@ it('an SDK client receives distinct missing-index and query errors with no priva
 it('the application facade preserves the query-failure code and retry guidance', async () => {
   await baseline(); const db = await activeDatabase(); db.exec('DROP TABLE record_search'); db.close();
   await expect(new KnowledgeApplication(paths).retrieve({ contract_version: 1, repo_id: 'sample', task: 'Synthetic' })).rejects.toMatchObject({ detail: { code: 'INDEX_QUERY_FAILED', retryable: true } });
+});
+it('corrupt indexed metadata returns a safe query error rather than raw parser diagnostics', async () => {
+  await baseline(); const db = await activeDatabase();
+  db.prepare('UPDATE records SET body = ?').run('---\nprivate-secret: [unterminated\n---\n'); db.close();
+  await expect(service.get('sample.first', 'sample')).rejects.toMatchObject({ code: 'INDEX_QUERY_FAILED' });
+});
+it('active reader connections are read-only', async () => {
+  await baseline(); const db = await openIndex(paths.runtimeRoot);
+  try { expect(() => db.exec('DELETE FROM records')).toThrow(); } finally { db.close(); }
+  expect((await service.search('Synthetic', 'sample')).results).toHaveLength(1);
+});
+it('transaction failure rolls back the staged build and preserves active readers', async () => {
+  const good = await baseline();
+  await record('sample.first', [{ type: 'related-to', target: 'sample.second' }, { type: 'related-to', target: 'sample.second' }]);
+  await record('sample.second');
+  await expect(buildActiveGeneration(root, paths.runtimeRoot)).rejects.toMatchObject({ code: 'INDEX_BUILD_FAILED' });
+  await preserved(good.generation);
 });
