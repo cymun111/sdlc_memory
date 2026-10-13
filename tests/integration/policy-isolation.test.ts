@@ -197,7 +197,7 @@ it('owner authorization is checked again after asynchronous evidence inspection'
   const report = createConflictReport(paths, { repoId: 'alpha', recordIds: ['alpha.a', 'alpha.b'], explanation: 'Synthetic access-change case.' });
   const hash = createHash('sha256').update(await readFile(report.path)).digest('hex');
   const original = KnowledgeService.prototype.get;
-  vi.spyOn(KnowledgeService.prototype, 'get').mockImplementation(async function (...args) {
+  vi.spyOn(KnowledgeService.prototype, 'get').mockImplementation(async function (this: KnowledgeService, ...args) {
     const result = await original.apply(this, args); paths.config.principal = 'intruder'; return result;
   });
   await expect((conflictStore as any).resolveConflictReport(paths, { repoId: 'alpha', id: report.id, expectedHash: hash, state: 'rejected', reason: 'Synthetic review.' })).rejects.toMatchObject({ code: 'FORBIDDEN' });
