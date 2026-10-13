@@ -13,6 +13,7 @@ import { KnowledgeService } from './retrieval/service.js';
 import { listRepositories } from './retrieval/repositories.js';
 import { buildRepositoryMap, getRepositoryMap } from './retrieval/repository-map.js';
 import { serveStdio } from './mcp/server.js';
+import { optionalProvenance } from './indexing/provenance.js';
 
 function flag(args: string[], name: string): string | undefined {
   const index = args.indexOf(name);
@@ -126,7 +127,10 @@ async function main(): Promise<void> {
       const agent = requireFlag(args, '--agent');
       if (agent !== 'codex') throw new Error('Only the Codex adapter is in scope; its native configuration is not verified in this environment.');
       const client = configuredClient(process.env.CODEX_COMMAND ?? 'codex');
-      const report = { repo_id: repoId, target_path: repoPath, agent, client, dry_run: args.includes('--dry-run'), planned_changes: ['local-only source registration', 'Codex MCP configuration', 'scoped bootstrap instructions'], installed: [] as string[], verified: [] as string[], blocked: [] as string[], manual: [] as string[] };
+      const metadata = await optionalProvenance(root, paths.runtimeRoot);
+      let sourceRevision: string | null = null;
+      try { sourceRevision = gitText(repoPath, 'rev-parse', 'HEAD') || null; } catch { /* Source unavailable; planning is not verification. */ }
+      const report = { ...metadata, source_revision: sourceRevision, repo_id: repoId, target_path: repoPath, agent, client, dry_run: args.includes('--dry-run'), planned_changes: ['local-only source registration', 'Codex MCP configuration', 'scoped bootstrap instructions'], installed: [] as string[], verified: [] as string[], blocked: [] as string[], manual: [] as string[] };
       if (args.includes('--dry-run')) {
         if (!client.available) report.blocked.push('Codex CLI is not installed or not discoverable on PATH; no external files were changed.');
       } else {
@@ -150,7 +154,7 @@ async function main(): Promise<void> {
       const candidates = await listCandidates(paths, repo.id);
       let activeIndex: unknown = null;
       try { activeIndex = JSON.parse(readFileSync(path.join(paths.runtimeRoot, 'index-active.json'), 'utf8')); } catch { /* No active generation. */ }
-      console.log(JSON.stringify({ repo_id: repo.id, source_path: repo.path, git_revision: gitText(repo.path, 'rev-parse', 'HEAD'), dirty: Boolean(gitText(repo.path, 'status', '--porcelain')), node: process.version, index: activeIndex, pending_candidates: candidates.length, pending_receipts: pendingSubmissionCount(paths), integration: { agent: 'codex', available: codex.available, version: codex.version ?? null, state: 'not-installed-or-not-verified' } }, null, 2));
+      console.log(JSON.stringify({ ...await optionalProvenance(root, paths.runtimeRoot), repo_id: repo.id, source_path: repo.path, git_revision: gitText(repo.path, 'rev-parse', 'HEAD'), dirty: Boolean(gitText(repo.path, 'status', '--porcelain')), node: process.version, index: activeIndex, pending_candidates: candidates.length, pending_receipts: pendingSubmissionCount(paths), integration: { agent: 'codex', available: codex.available, version: codex.version ?? null, state: 'not-installed-or-not-verified' } }, null, 2));
       break;
     }
     case 'session': {
@@ -174,7 +178,7 @@ async function main(): Promise<void> {
       let revision = 'unversioned';
       try { revision = gitText(root, 'rev-parse', 'HEAD'); } catch { /* No Git checkout. */ }
       const packageData = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8')) as { version?: string };
-      console.log(JSON.stringify({ version: packageData.version ?? 'unknown', knowledge_root: root, runtime_root: paths.runtimeRoot, active_index: activeIndex, knowledge_revision: revision, registered_repositories: paths.config.repositories.map(({ id, name, owner, team }) => ({ id, name, owner, team })), pending_candidates: (await listCandidates(paths)).length, pending_receipts: pendingSubmissionCount(paths), integration_ready: false }, null, 2));
+      console.log(JSON.stringify({ ...await optionalProvenance(root, paths.runtimeRoot), version: packageData.version ?? 'unknown', knowledge_root: root, runtime_root: paths.runtimeRoot, active_index: activeIndex, checkout_revision: revision, registered_repositories: paths.config.repositories.map(({ id, name, owner, team }) => ({ id, name, owner, team })), pending_candidates: (await listCandidates(paths)).length, pending_receipts: pendingSubmissionCount(paths), integration_ready: false }, null, 2));
       break;
     }
     case 'hooks':

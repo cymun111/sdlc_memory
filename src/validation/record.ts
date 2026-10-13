@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse } from 'yaml';
+import { createHash } from 'node:crypto';
 import type { KnowledgeRecord } from '../core/types.js';
 
 const ajv = new Ajv2020({ allErrors: true, strict: false, validateFormats: false });
@@ -21,15 +22,18 @@ function findSchemaRoot(): string {
 
 async function validatorFor(root = path.resolve(process.env.KNOWLEDGE_ROOT ?? findSchemaRoot())) {
   const schemaPath = path.join(root, 'schemas/knowledge.schema.json');
-  const cached = schemaCache.get(schemaPath);
+  const source = await readFile(schemaPath, 'utf8');
+  const cacheKey = schemaPath + ':' + createHash('sha256').update(source).digest('hex');
+  const cached = schemaCache.get(cacheKey);
   if (cached) return cached;
-  const pending = readFile(schemaPath, 'utf8').then((source) => {
+  const pending = Promise.resolve().then(() => {
     const compiler = new Ajv2020({ allErrors: true, strict: false, validateFormats: false });
     return compiler.compile(JSON.parse(source) as object);
   });
-  schemaCache.set(schemaPath, pending);
+  for (const key of schemaCache.keys()) if (key.startsWith(schemaPath + ':')) schemaCache.delete(key);
+  schemaCache.set(cacheKey, pending);
   try { return await pending; }
-  catch (error) { schemaCache.delete(schemaPath); throw error; }
+  catch (error) { schemaCache.delete(cacheKey); throw error; }
 }
 
 export async function parseKnowledgeMarkdown(markdown: string, knowledgeRoot?: string): Promise<KnowledgeRecord> {

@@ -64,8 +64,9 @@ function git(repo: RegisteredRepo, args: string[]): string {
   return execFileSync('git', ['-C', repo.path, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
 }
 
-function sourceFreshness(record: KnowledgeRecord, config: LocalConfig, sourceRevision?: string): string {
+function sourceFreshness(record: KnowledgeRecord, config: LocalConfig, sourceRevision?: string, sourceRepoId?: string): string {
   let sawCode = false;
+  let unchecked = !sourceRevision;
   for (const raw of record.sources) {
     if (raw.kind !== 'code') continue;
     sawCode = true;
@@ -75,16 +76,16 @@ function sourceFreshness(record: KnowledgeRecord, config: LocalConfig, sourceRev
     if (relative.startsWith('/') || relative.split('/').includes('..')) return 'unknown';
     try {
       const citedBlob = git(repo, ['rev-parse', `${raw.commit}:${relative}`]);
-      if (sourceRevision) {
+      if (sourceRevision && sourceRepoId === raw.repo_id) {
         const requestedBlob = git(repo, ['rev-parse', `${sourceRevision}:${relative}`]);
         if (citedBlob !== requestedBlob) return 'needs_revalidation';
         if (git(repo, ['status', '--porcelain', '--', relative])) return 'dirty_worktree';
         const currentBlob = git(repo, ['hash-object', '--', relative]);
         if (currentBlob !== requestedBlob) return 'dirty_worktree';
-      }
+      } else unchecked = true;
     } catch { return 'unknown'; }
   }
-  return sawCode ? (sourceRevision ? 'verified_at_revision' : 'revision_not_checked') : 'not_applicable';
+  return sawCode ? (!unchecked ? 'verified_at_revision' : 'revision_not_checked') : 'not_applicable';
 }
 
 function manifest(database: DatabaseSync, paths: ResolvedPaths): { knowledgeRevision: string; indexGeneration: string } {
@@ -210,7 +211,7 @@ export class KnowledgeService {
           } catch { throw new DomainError('INDEX_QUERY_FAILED', 'The knowledge query failed; check or rebuild the active index.'); }
         }
       }
-      const mandatory = policy.filter(({ record }) => sourceFreshness(record, this.paths.config, input.source_revision) !== 'needs_revalidation');
+      const mandatory = policy.filter(({ record }) => sourceFreshness(record, this.paths.config, input.source_revision, target!.id) !== 'needs_revalidation');
       const initial = [...mandatory, ...matches.filter((match) => !mandatory.some((item) => item.stored.id === match.stored.id))];
       const maxResults = Math.max(1, Math.min(input.max_results ?? this.paths.config.budgets.maxResults, this.paths.config.budgets.maxResults));
       const maxTokens = Math.max(1, Math.min(input.max_tokens ?? this.paths.config.budgets.maxTokens, this.paths.config.budgets.maxTokens));
@@ -226,7 +227,7 @@ export class KnowledgeService {
       const selected: KnowledgeSummary[] = [];
       for (const item of expanded) {
         if (selected.length >= maxResults && !mandatoryIds.has(item.stored.id)) continue;
-        const next = summary(item.stored, item.record, item.reason, sourceFreshness(item.record, this.paths.config, input.source_revision));
+        const next = summary(item.stored, item.record, item.reason, sourceFreshness(item.record, this.paths.config, input.source_revision, target!.id));
         const tentative = this.#bundle(database, selected.concat(next), initial.length + relatedIds.length, false, [], { repo_id: target!.id, requested_revision: input.source_revision ?? null });
         const estimatedTokens = tokenEstimate(tentative);
         const byteCount = Buffer.byteLength(JSON.stringify(tentative), 'utf8');
