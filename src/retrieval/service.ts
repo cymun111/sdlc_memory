@@ -109,16 +109,13 @@ export class KnowledgeService {
     try { return callback(database); }
     catch (error) {
       if (error instanceof DomainError) throw error;
-      if (error && typeof error === 'object' && 'code' in error && error.code === 'ERR_SQLITE_ERROR') {
-        throw new DomainError('INDEX_QUERY_FAILED', 'The knowledge query failed; check or rebuild the active index.');
-      }
-      throw error;
+      throw new DomainError('INDEX_QUERY_FAILED', 'The knowledge query failed; check or rebuild the active index.');
     } finally { database.close(); }
   }
 
   async #accessible(database: DatabaseSync, repoId?: string): Promise<{ target?: RegisteredRepo; records: Array<{ stored: StoredRecord; record: KnowledgeRecord }> }> {
     const target = localRepo(this.paths.config, repoId);
-    if (repoId && !target) throw new Error(`Repository is not registered: ${repoId}`);
+    if (repoId && !target) throw new DomainError('NOT_FOUND', 'Repository is not registered.');
     const rows = database.prepare("SELECT * FROM records WHERE status = 'verified'").all() as Array<Record<string, SQLOutputValue>>;
     const records = rows.map(decodeRecord).filter((stored): stored is StoredRecord => Boolean(stored)).map((stored) => ({ stored, record: parsedRecord(stored) }));
     return { ...(target ? { target } : {}), records: records.filter(({ record }) => canRead(record, this.paths.config, target)) };
@@ -146,11 +143,11 @@ export class KnowledgeService {
 
   async get(id: string, repoId?: string, byteLimit = 8192): Promise<{ record: KnowledgeSummary; body: string; truncated: boolean; knowledge_revision: string; index_generation: string }> {
     return this.#withIndex((database) => {
-      if (repoId && !localRepo(this.paths.config, repoId)) throw new Error(`Repository is not registered: ${repoId}`);
+      if (repoId && !localRepo(this.paths.config, repoId)) throw new DomainError('NOT_FOUND', 'Repository is not registered.');
       const stored = readRecord(database, id);
-      if (!stored) throw new Error(`Knowledge record not found: ${id}`);
+      if (!stored) throw new DomainError('NOT_FOUND', 'Knowledge record not found.');
       const record = parsedRecord(stored);
-      if (!canRead(record, this.paths.config, localRepo(this.paths.config, repoId))) throw new Error(`Knowledge record not found: ${id}`);
+      if (!canRead(record, this.paths.config, localRepo(this.paths.config, repoId))) throw new DomainError('NOT_FOUND', 'Knowledge record not found.');
       const limit = Math.max(1, Math.min(byteLimit, this.paths.config.budgets.maxBytes));
       const bytes = Buffer.from(stored.body, 'utf8');
       const body = bytes.length > limit ? bytes.subarray(0, limit).toString('utf8') : stored.body;
@@ -163,7 +160,7 @@ export class KnowledgeService {
     return this.#withIndex((database) => {
       const access = this.#accessibleSync(database, repoId);
       const accessible = new Map(access.records.map(({ stored, record }) => [stored.id, { stored, record }]));
-      if (!accessible.has(id)) throw new Error(`Knowledge record not found: ${id}`);
+      if (!accessible.has(id)) throw new DomainError('NOT_FOUND', 'Knowledge record not found.');
       const maximumDepth = Math.max(0, Math.min(depth, this.paths.config.budgets.maxDepth));
       const maximumVisited = Math.min(this.paths.config.budgets.maxVisited, 50);
       const maximumResults = Math.max(1, Math.min(limit, this.paths.config.budgets.maxResults));
@@ -248,7 +245,7 @@ export class KnowledgeService {
 
   #accessibleSync(database: DatabaseSync, repoId?: string): { target?: RegisteredRepo; records: Array<{ stored: StoredRecord; record: KnowledgeRecord }> } {
     const target = localRepo(this.paths.config, repoId);
-    if (repoId && !target) throw new Error(`Repository is not registered: ${repoId}`);
+    if (repoId && !target) throw new DomainError('NOT_FOUND', 'Repository is not registered.');
     const rows = database.prepare("SELECT * FROM records WHERE status = 'verified'").all() as Array<Record<string, SQLOutputValue>>;
     const records = rows.map(decodeRecord).filter((stored): stored is StoredRecord => Boolean(stored)).map((stored) => ({ stored, record: parsedRecord(stored) }));
     return { ...(target ? { target } : {}), records: records.filter(({ record }) => canRead(record, this.paths.config, target)) };
