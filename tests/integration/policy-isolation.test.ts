@@ -1,4 +1,4 @@
-import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile, symlink, stat } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
@@ -299,4 +299,9 @@ it('an unreadable authorized conflict directory is not treated as absent', async
   createConflictReport(paths, { repoId: 'alpha', recordIds: ['alpha.a', 'alpha.b'], explanation: 'Synthetic permission failure.' });
   permissions.directory = path.join(root, 'candidates', 'alpha', 'conflicts');
   await expect(context()).rejects.toMatchObject({ code: 'CONFLICT_STATE_UNAVAILABLE' });
+});
+it('report creation rejects linked ancestors before creating directories in a source checkout', async () => {
+  await symlink(path.join(root, 'source'), path.join(root, 'candidates'), process.platform === 'win32' ? 'junction' : 'dir');
+  expect(() => createConflictReport(paths, { repoId: 'alpha', recordIds: ['alpha.a', 'alpha.b'], explanation: 'Synthetic linked write boundary.' })).toThrow();
+  await expect(stat(path.join(root, 'source', 'alpha'))).rejects.toMatchObject({ code: 'ENOENT' });
 });
