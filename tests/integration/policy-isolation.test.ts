@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { stringify } from 'yaml';
 import { beforeEach, afterEach, expect, it } from 'vitest';
-import { resolvePaths, type ResolvedPaths } from '../../src/core/config.js';
+import { resolvePaths, saveLocalConfig, type ResolvedPaths } from '../../src/core/config.js';
 import { buildActiveGeneration } from '../../src/indexing/build-index.js';
 import { KnowledgeService } from '../../src/retrieval/service.js';
 import { createConflictReport } from '../../src/capture/review.js';
@@ -14,6 +14,8 @@ import { createMcpServer } from '../../src/mcp/server.js';
 import * as conflictStore from '../../src/capture/conflicts.js';
 import { createHash } from 'node:crypto';
 import { KnowledgeApplication } from '../../src/application/service.js';
+import { DatabaseSync } from 'node:sqlite';
+import { vi } from 'vitest';
 
 let root: string;
 let paths: ResolvedPaths;
@@ -37,7 +39,7 @@ beforeEach(async () => {
   paths.config.repositories = [{ id: 'alpha', name: 'Alpha', owner: 'local-owner', team: 'one', path: path.join(root, 'source'), aliases: [] }];
   paths.config.teams = ['one']; service = new KnowledgeService(paths);
 });
-afterEach(async () => { await rm(root, { recursive: true, force: true }); });
+afterEach(async () => { vi.restoreAllMocks(); await rm(root, { recursive: true, force: true }); });
 
 it('filters denied relationship and source references from summaries and full record headers', async () => {
   await record('beta.hidden', { scope: { kind: 'repo', repo_id: 'beta' }, title: 'Hidden title' });
@@ -164,4 +166,40 @@ it('more mandatory policies than the result limit cannot silently exceed the lim
   await record('alpha.policy-b', { type: 'approved-policy', sources: [approval] }); await index();
   const result = await context({ max_results: 1 });
   expect(result.status).toBe('CONTEXT_BUDGET_EXCEEDED'); expect(result.results.length).toBeLessThanOrEqual(1);
+});
+it('denied records are rejected before parsing corrupt private bodies', async () => {
+  await record('beta.hidden', { scope: { kind: 'repo', repo_id: 'beta' } }); const built = await index();
+  const db = new DatabaseSync(path.join(paths.runtimeRoot, 'index-generations', built.generation + '.sqlite'));
+  db.prepare('UPDATE records SET body = ? WHERE id = ?').run('---\nprivate: [bad\n---\n', 'beta.hidden'); db.close();
+  await expect(service.get('beta.hidden', 'alpha', 8192, true)).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  expect((await context()).results).toEqual([]);
+});
+it('CLI historical inspection and owner conflict review are usable without a new MCP tool', async () => {
+  await record('alpha.old', { status: 'superseded' }); await record('alpha.a'); await record('alpha.b'); await saveLocalConfig(paths, paths.config); await index();
+  const report = createConflictReport(paths, { repoId: 'alpha', recordIds: ['alpha.a', 'alpha.b'], explanation: 'Synthetic CLI report.' });
+  const command = (args: string[]) => JSON.parse(execFileSync(process.execPath, [path.resolve('dist/cli.js'), '--root', root, ...args], { encoding: 'utf8' }));
+  expect(command(['get', '--id', 'alpha.old', '--repo', 'alpha', '--include-history']).record.normative).toBe(false);
+  const inspected = command(['conflict', 'inspect', report.id, '--repo', 'alpha']);
+  expect(command(['conflict', 'resolve', report.id, '--repo', 'alpha', '--expected-hash', inspected.hash, '--reason', 'Owner reviewed fictional sources.']).state).toBe('resolved');
+});
+it('SDK conflict receipts disclose no absolute checkout path', async () => {
+  await record('alpha.a'); await record('alpha.b'); await index();
+  const server = createMcpServer(paths); const client = new Client({ name: 'report-fixture', version: '1' }); const [left, right] = InMemoryTransport.createLinkedPair();
+  try {
+    await server.connect(right); await client.connect(left);
+    const result = await client.callTool({ name: 'report_conflict', arguments: { repo_id: 'alpha', record_ids: ['alpha.a', 'alpha.b'], explanation: 'Synthetic SDK report.' } });
+    expect(result.isError).not.toBe(true); expect(JSON.stringify(result)).not.toContain(root.replaceAll('\\', '\\\\'));
+    expect((result.structuredContent as any).data).not.toHaveProperty('path');
+  } finally { await client.close(); await server.close(); }
+});
+it('owner authorization is checked again after asynchronous evidence inspection', async () => {
+  await record('alpha.a'); await record('alpha.b'); await index();
+  const report = createConflictReport(paths, { repoId: 'alpha', recordIds: ['alpha.a', 'alpha.b'], explanation: 'Synthetic access-change case.' });
+  const hash = createHash('sha256').update(await readFile(report.path)).digest('hex');
+  const original = KnowledgeService.prototype.get;
+  vi.spyOn(KnowledgeService.prototype, 'get').mockImplementation(async function (...args) {
+    const result = await original.apply(this, args); paths.config.principal = 'intruder'; return result;
+  });
+  await expect((conflictStore as any).resolveConflictReport(paths, { repoId: 'alpha', id: report.id, expectedHash: hash, state: 'rejected', reason: 'Synthetic review.' })).rejects.toMatchObject({ code: 'FORBIDDEN' });
+  expect(JSON.parse(await readFile(report.path, 'utf8')).state).toBe('candidate');
 });
