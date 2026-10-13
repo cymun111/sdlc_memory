@@ -18,9 +18,7 @@ it('rejects duplicate task IDs and unknown relevance annotations', async () => {
   expect(() => evaluator.fixtureSchema.parse(unknown)).toThrow(/Unknown expected/);
 });
 it('gates an unexpected lost strict-term match while retaining explicitly annotated baseline misses', () => {
-  // Deliberate runtime RED: the initial evaluator has no per-case baseline regression gate.
-  const baselineFailures = (evaluator as unknown as { baselineFailures: (expected: string[], knownMissing: string[], actual: string[]) => string[] }).baselineFailures;
-  expect(typeof baselineFailures).toBe('function');
+  const baselineFailures = evaluator.baselineFailures;
   expect(baselineFailures(['cache'], [], [])).toEqual(['Lost baseline record cache']);
   expect(baselineFailures(['retry'], ['retry'], [])).toEqual([]);
   expect(baselineFailures([], [], ['private'])).toEqual(['Unexpected baseline record private']);

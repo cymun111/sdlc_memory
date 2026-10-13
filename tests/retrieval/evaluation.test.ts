@@ -3,6 +3,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { expect, it } from 'vitest';
+import { evaluateRetrieval } from '../../scripts/retrieval-evaluation.js';
 
 it('runs the versioned multi-repository baseline through service and MCP and reports honest quality gates', async () => {
   const temporary = await mkdtemp(path.join(os.tmpdir(), 'retrieval-evaluation-test-'));
@@ -31,4 +32,16 @@ it('runs the versioned multi-repository baseline through service and MCP and rep
       expect(item.full_document.calls).toBeGreaterThanOrEqual(1);
     }
   } finally { await rm(temporary, { recursive: true, force: true }); }
+}, 120000);
+
+it('measures the real service and SDK paths with a fixed relevance oracle, including explicit policy blockers', async () => {
+  const report = await evaluateRetrieval();
+  expect(report.safety).toEqual({ passed: true, expectation_failures: [], unauthorized_exposures: 0, interface_mismatches: 0 });
+  expect(report.targets.relevant_record_coverage).toMatchObject({ hits: 29, expected: 34, met: false });
+  expect(report.targets.mandatory_policy_recall).toMatchObject({ hits: 54, expected: 54, met: true });
+  expect(report.targets.full_document_relevant_coverage).toMatchObject({ hits: 34, expected: 34 });
+  expect(report.totals.regressions.map((item) => item.id)).toEqual(['25', '26', '27', '29']);
+  expect(report.totals.stale_results).toBe(3);
+  expect(report.totals.full_document.calls).toBe(331);
+  expect(report.cases.find((item) => item.id === '33')?.service.envelope.data).toMatchObject({ status: 'POLICY_REVIEW_REQUIRED', policy_issues: expect.arrayContaining([{ id: 'orchard.safety', reason: 'disputed' }]) });
 }, 120000);

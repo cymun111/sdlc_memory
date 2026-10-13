@@ -220,5 +220,40 @@ export async function evaluateRetrieval(fixturePath = defaultFixturePath) {
   const mismatches = cases.filter((item) => !item.interface_match).length;
   const relevant = ratio('relevant'); const policies = ratio('mandatory_policy');
   const totals = (field: 'service' | 'mcp' | 'full_document') => ({ calls: cases.reduce((sum, item) => sum + item[field].calls, 0), bytes: cases.reduce((sum, item) => sum + item[field].bytes, 0), estimated_tokens: cases.reduce((sum, item) => sum + item[field].estimated_tokens, 0), latency_ms: cases.reduce((sum, item) => sum + item[field].latency_ms, 0) });
-  return { report_version: 1, fixture_version: fixture.version, fixture_sha256: createHash('sha256').update(fixtureText).digest('hex'), generated_at: new Date().toISOString(), environment: { node: process.version, platform: process.platform, architecture: process.arch, cpu: os.cpus()[0]?.model ?? 'unknown', git: execFileSync('git', ['--version'], { encoding: 'utf8' }).trim(), knowledge_source_commit: git(projectRoot, 'rev-parse', 'HEAD'), mcp_sdk: '1.31.0', transport: 'SDK InMemoryTransport', sqlite: 'node:sqlite' }, method: { retrieval: 'current strict-AND FTS plus mandatory policies and authorized curated graph expansion; no ranking changes', full_document: 'all manifest-authorized applicable verified records via get(byte_limit=32768); no task filtering; fixture bodies below cap', byte_measurement: 'UTF-8 application envelope {ok,data}; summed per get for full-document; excludes JSON-RPC framing and duplicate MCP text content', tokens: 'ceil(serialized UTF-8 bytes / 3), conservative estimate, not model tokens', mandatory_policy_recall: 'visible mandatory result OR explicit policy issue OR omitted-mandatory blocking reference; separate from normative compliance', aggregation: 'micro recall over annotated record-task pairs; empty denominators null; quality error cases have no relevant records', latency: 'one sequential sample per case, service before MCP before full-doc; setup excluded; no timing CI threshold' }, safety: { passed: failures.length === 0 && exposures === 0 && mismatches === 0, expectation_failures: failures, unauthorized_exposures: exposures, interface_mismatches: mismatches }, targets: { relevant_record_coverage: { ...relevant, target: 0.9, met: relevant.measured !== null && relevant.measured >= 0.9 }, mandatory_policy_recall: { ...policies, target: 1, met: policies.measured !== null && policies.measured === 1 }, full_document_relevant_coverage: ratio('full_document_relevant') }, totals: { service: totals('service'), mcp: totals('mcp'), full_document: totals('full_document'), stale_results: cases.reduce((sum, item) => sum + item.stale_results.length, 0), regressions: cases.filter((item) => item.regressions.length > 0).map((item) => ({ id: item.id, missing: item.regressions })) }, cases };
+  return {
+    report_version: 1,
+    fixture_version: fixture.version,
+    fixture_sha256: createHash('sha256').update(fixtureText).digest('hex'),
+    generated_at: new Date().toISOString(),
+    environment: {
+      node: process.version, platform: process.platform, architecture: process.arch,
+      cpu: os.cpus()[0]?.model ?? 'unknown',
+      git: execFileSync('git', ['--version'], { encoding: 'utf8' }).trim(),
+      evaluator_source_commit: git(projectRoot, 'rev-parse', 'HEAD'),
+      evaluator_source_sha256: createHash('sha256').update(await readFile(fileURLToPath(import.meta.url))).digest('hex'),
+      mcp_sdk: (JSON.parse(await readFile(path.join(projectRoot, 'node_modules/@modelcontextprotocol/sdk/package.json'), 'utf8')) as { version: string }).version,
+      transport: 'SDK InMemoryTransport', sqlite: process.versions.sqlite ?? 'node:sqlite'
+    },
+    method: {
+      retrieval: 'current strict-AND FTS plus mandatory policies and authorized curated graph expansion; no ranking changes',
+      full_document: 'all manifest-authorized applicable verified records via get(byte_limit=32768); no task filtering; fixture bodies below cap',
+      byte_measurement: 'UTF-8 application envelope {ok,data}; summed per get for full-document; excludes JSON-RPC framing and duplicate MCP text content',
+      tokens: 'ceil(serialized UTF-8 bytes / 3) per task observation, conservative estimate, not model tokens',
+      mandatory_policy_recall: 'visible mandatory result OR explicit policy issue OR omitted-mandatory blocking reference; separate from normative compliance',
+      aggregation: 'micro recall over annotated record-task pairs; empty denominators null; expected error cases excluded from recall denominators',
+      latency: 'one sequential sample per case, service before MCP before full-doc; setup excluded; no timing CI threshold'
+    },
+    safety: { passed: failures.length === 0 && exposures === 0 && mismatches === 0, expectation_failures: failures, unauthorized_exposures: exposures, interface_mismatches: mismatches },
+    targets: {
+      relevant_record_coverage: { ...relevant, target: 0.9, met: relevant.measured !== null && relevant.measured >= 0.9 },
+      mandatory_policy_recall: { ...policies, target: 1, met: policies.measured !== null && policies.measured === 1 },
+      full_document_relevant_coverage: ratio('full_document_relevant')
+    },
+    totals: {
+      service: totals('service'), mcp: totals('mcp'), full_document: totals('full_document'),
+      stale_results: cases.reduce((sum, item) => sum + item.stale_results.length, 0),
+      regressions: cases.filter((item) => item.regressions.length > 0).map((item) => ({ id: item.id, missing: item.regressions }))
+    },
+    cases
+  };
 }
