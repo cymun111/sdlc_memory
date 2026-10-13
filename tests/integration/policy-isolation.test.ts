@@ -203,3 +203,18 @@ it('owner authorization is checked again after asynchronous evidence inspection'
   await expect((conflictStore as any).resolveConflictReport(paths, { repoId: 'alpha', id: report.id, expectedHash: hash, state: 'rejected', reason: 'Synthetic review.' })).rejects.toMatchObject({ code: 'FORBIDDEN' });
   expect(JSON.parse(await readFile(report.path, 'utf8')).state).toBe('candidate');
 });
+it('fresh visible evidence cannot hide unverifiable evidence on the same mandatory policy', async () => {
+  await record('alpha.policy', { type: 'approved-policy', sources: [approval, code(), { kind: 'code', repo_id: 'beta', path: 'private.ts', commit: revision }] }); await index();
+  const result = await context({ source_revision: revision });
+  expect(result.status).toBe('POLICY_REVIEW_REQUIRED'); expect((result as any).policy_issues).toContainEqual({ id: 'alpha.policy', reason: 'unknown' });
+  expect(JSON.stringify(result)).not.toContain('beta');
+});
+it('future-dated approval metadata does not establish a completed approval', async () => {
+  await record('alpha.policy', { type: 'approved-policy', sources: [{ ...approval, approved_at: '2099-01-01T00:00:00Z' }] }); await index();
+  const result = await context(); expect(result.status).toBe('POLICY_REVIEW_REQUIRED');
+  expect((result as any).policy_issues).toContainEqual({ id: 'alpha.policy', reason: 'approval_evidence_unavailable' });
+});
+it('direct read budgets are validated rather than silently returning empty untruncated bodies', async () => {
+  await record('alpha.a'); await index();
+  await expect(service.get('alpha.a', 'alpha', NaN)).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+});
