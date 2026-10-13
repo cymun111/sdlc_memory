@@ -10,6 +10,8 @@ import { resolvePaths, type ResolvedPaths } from '../../src/core/config.js';
 import { KnowledgeService } from '../../src/retrieval/service.js';
 import { listRepositories } from '../../src/retrieval/repositories.js';
 import { KnowledgeApplication } from '../../src/application/service.js';
+import { buildRepositoryMap, getRepositoryMap } from '../../src/retrieval/repository-map.js';
+import { startSession } from '../../src/capture/session.js';
 
 const changes = vi.hoisted(() => ({ file: '', replacement: '', triggered: false }));
 vi.mock('node:fs/promises', async (importOriginal) => {
@@ -43,7 +45,9 @@ async function snapshot(result: unknown) { return (result as any).knowledge_snap
 it('stores a complete immutable clean snapshot manifest', async () => {
   git('init'); const revision = commit(); const built = await buildActiveGeneration(root, paths.runtimeRoot);
   const result = await service.search('Synthetic', 'sample');
-  expect(await snapshot(result)).toMatchObject({ manifest_version: 2, schema_version: 1, indexer_version: 'knowledge-2', generation: built.generation, knowledge_commit: revision, source_state: 'clean', record_count: 1 });
+  expect(await snapshot(result)).toMatchObject({ manifest_version: 2, schema_version: 1, indexer_version: 'knowledge-2', generation: built.generation, knowledge_commit: revision, source_state: 'clean' });
+  const db = new DatabaseSync(path.join(paths.runtimeRoot, 'index-generations', built.generation + '.sqlite'));
+  try { expect(db.prepare('SELECT record_count FROM index_manifest').get()?.record_count).toBe(1); } finally { db.close(); }
   expect((await snapshot(result)).content_fingerprint).toMatch(/^[a-f0-9]{64}$/);
   expect((await snapshot(result)).schema_fingerprint).toMatch(/^[a-f0-9]{64}$/);
   expect((await snapshot(result)).built_at).toMatch(/^\d{4}-/);
@@ -107,4 +111,47 @@ it('legacy generations without snapshot metadata require an explicit rebuild', a
   if (columns.some((column) => column.name === 'snapshot_json')) db.exec('UPDATE index_manifest SET snapshot_json = NULL');
   db.close();
   await expect(service.search('Synthetic', 'sample')).rejects.toMatchObject({ code: 'INDEX_REBUILD_REQUIRED' });
+});
+it('public snapshot metadata does not disclose counts of inaccessible records', async () => {
+  await writeFile(path.join(root, 'knowledge', 'private.md'), markdown().replace('id: sample.overview', 'id: private.overview').replace('repo_id: sample', 'repo_id: private'));
+  await buildActiveGeneration(root, paths.runtimeRoot);
+  const result = await service.search('Synthetic', 'sample');
+  expect(result.results).toHaveLength(1);
+  expect(await snapshot(result)).not.toHaveProperty('record_count');
+});
+it('maps and prepared session receipts distinguish indexed knowledge from source revision', async () => {
+  git('init'); const indexedRevision = commit(); await buildActiveGeneration(root, paths.runtimeRoot);
+  await writeFile(filename(), markdown('Synthetic next source state.')); const sourceRevision = commit();
+  await buildRepositoryMap(paths, 'sample');
+  const map = await getRepositoryMap(paths, { repo_id: 'sample' });
+  expect((map as any).knowledge_snapshot.knowledge_commit).toBe(indexedRevision);
+  expect(map.source_revision).toBe(sourceRevision);
+  const taskFile = path.join(root, 'task.txt'); await writeFile(taskFile, 'Synthetic');
+  const receipt = await startSession(paths, { repoId: 'sample', agent: 'codex', taskFile, prepareOnly: true });
+  expect(receipt.source_revision).toBe(sourceRevision);
+  expect(receipt.context_receipt).toMatchObject({ knowledge_snapshot: { knowledge_commit: indexedRevision }, application_source: { repo_id: 'sample', requested_revision: sourceRevision } });
+});
+it('corrupt Git metadata yields an explicitly fingerprinted build without a false commit', async () => {
+  await mkdir(path.join(root, '.git')); await writeFile(path.join(root, '.git', 'HEAD'), 'invalid');
+  await buildActiveGeneration(root, paths.runtimeRoot);
+  const result = await service.search('Synthetic', 'sample');
+  expect(await snapshot(result)).toMatchObject({ knowledge_commit: null, source_state: 'git_unavailable' });
+  expect(result.knowledge_revision).toMatch(/^git_unavailable:/);
+  expect((result as any).checkout_drift).toMatchObject({ state: 'unavailable', head_changed: null });
+});
+it('schema changes produce drift and inconsistent manifest metadata is rejected', async () => {
+  const built = await buildActiveGeneration(root, paths.runtimeRoot);
+  const schemaFile = path.join(root, 'schemas/knowledge.schema.json'); await writeFile(schemaFile, (await readFile(schemaFile, 'utf8')) + '\n');
+  expect((await service.search('Synthetic', 'sample') as any).checkout_drift.content_changed).toBe(true);
+  const db = new DatabaseSync(path.join(paths.runtimeRoot, 'index-generations', built.generation + '.sqlite'));
+  db.exec('UPDATE index_manifest SET record_count = 999'); db.close();
+  await expect(service.search('Synthetic', 'sample')).rejects.toMatchObject({ code: 'INDEX_UNAVAILABLE' });
+});
+it('historical HEAD changes with identical content are distinguishable from content drift', async () => {
+  git('init'); const first = commit(); await buildActiveGeneration(root, paths.runtimeRoot);
+  git('-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '--allow-empty', '-m', 'Synthetic unrelated commit');
+  const later = git('rev-parse', 'HEAD');
+  const result = await service.related('sample.overview', 'sample');
+  expect(result.knowledge_revision).toBe(first);
+  expect((result as any).checkout_drift).toMatchObject({ state: 'changed', head_revision: later, head_changed: true, content_changed: false });
 });
