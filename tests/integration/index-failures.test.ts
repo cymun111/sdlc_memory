@@ -14,10 +14,14 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { validateKnowledgeTree } from '../../src/validation/validate-tree.js';
 import { openIndex } from '../../src/indexing/database.js';
 
-const faults = vi.hoisted(() => ({ readDirectory: '', readRecord: '', switchManifest: false }));
+const faults = vi.hoisted(() => ({ readDirectory: '', readRecord: '', createDirectory: '', switchManifest: false }));
 vi.mock('node:fs/promises', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:fs/promises')>();
   return { ...actual,
+    mkdir: (...args: Parameters<typeof actual.mkdir>) => {
+      if (String(args[0]) === faults.createDirectory) return Promise.reject(new Error('private filesystem path'));
+      return actual.mkdir(...args);
+    },
     readFile: (...args: Parameters<typeof actual.readFile>) => {
       if (String(args[0]) === faults.readRecord) return Promise.reject(Object.assign(new Error('private file failure'), { code: 'EACCES' }));
       return actual.readFile(...args);
@@ -45,7 +49,7 @@ beforeEach(async () => {
   service = new KnowledgeService(paths);
 });
 afterEach(async () => {
-  faults.readDirectory = ''; faults.readRecord = ''; faults.switchManifest = false;
+  faults.readDirectory = ''; faults.readRecord = ''; faults.createDirectory = ''; faults.switchManifest = false;
   await rm(root, { recursive: true, force: true });
 });
 async function record(id = 'sample.first', relationships: Array<{ type: string; target: string }> = [], extras: object = {}) {
@@ -183,4 +187,9 @@ it('transaction failure rolls back the staged build and preserves active readers
   await record('sample.second');
   await expect(buildActiveGeneration(root, paths.runtimeRoot)).rejects.toMatchObject({ code: 'INDEX_BUILD_FAILED' });
   await preserved(good.generation);
+});
+it('staging directory creation failures are sanitized and preserve active readers', async () => {
+  const good = await baseline(); faults.createDirectory = path.join(paths.runtimeRoot, 'index-generations');
+  await expect(buildActiveGeneration(root, paths.runtimeRoot)).rejects.toMatchObject({ code: 'INDEX_BUILD_FAILED' });
+  faults.createDirectory = ''; await preserved(good.generation);
 });
