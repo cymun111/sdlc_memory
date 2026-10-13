@@ -218,3 +218,67 @@ it('direct read budgets are validated rather than silently returning empty untru
   await record('alpha.a'); await index();
   await expect(service.get('alpha.a', 'alpha', NaN)).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
 });
+it('team-scoped policies respect applicability and unscoped principal allowlists', async () => {
+  await record('one.policy', { type: 'approved-policy', scope: { kind: 'team', team_id: 'one' }, sources: [approval] });
+  await record('two.hidden', { type: 'approved-policy', scope: { kind: 'team', team_id: 'two' }, title: 'Denied team title', sources: [approval] }); await index();
+  const result = await context(); expect(result.status).toBe('ok'); expect(result.results[0]?.normative).toBe(true);
+  expect(JSON.stringify(result)).not.toMatch(/two.hidden|Denied team title/);
+  expect((await service.search('Synthetic')).results.map((item) => item.id)).toEqual(['one.policy']);
+});
+it('conflict chains include authorized counterpart records even without text matches or graph expansion', async () => {
+  await record('alpha.a', { title: 'Needle', relationships: [{ type: 'contradicts', target: 'alpha.b' }] });
+  await record('alpha.b', { relationships: [{ type: 'contradicts', target: 'alpha.c' }] }); await record('alpha.c'); await index();
+  const result = await context({ task: 'Needle', depth: 0 });
+  expect(result.results.map((item) => item.id).sort()).toEqual(['alpha.a', 'alpha.b', 'alpha.c']);
+  expect(result.unresolved_conflicts).toHaveLength(2); expect(result.results.every((item) => item.requires_review)).toBe(true);
+});
+it('source field allowlists and supersedes projection keep unrelated metadata out of full bodies', async () => {
+  await record('beta.hidden', { scope: { kind: 'repo', repo_id: 'beta' }, status: 'superseded' });
+  await record('alpha.a', { supersedes: ['beta.hidden'], sources: [{ ...code(), symbol: 'synthetic', content_hash: '1'.repeat(64), debug: { path: 'private-beta' } }, { kind: 'documentation', reference: 'https://example.invalid/approved' }, { kind: 'code', repo_id: 'alpha', path: '../private-beta', commit: revision }, { kind: 'unsupported', private_metadata: 'private-beta' }] }); await index();
+  const result = await service.get('alpha.a', 'alpha'); expect(result.redacted).toBe(true);
+  expect(JSON.stringify(result)).not.toMatch(/private-beta|beta.hidden|private_metadata|debug/);
+  expect(result.record.evidence).toEqual(expect.arrayContaining([expect.objectContaining({ kind: 'code', symbol: 'synthetic' }), expect.objectContaining({ kind: 'documentation' })]));
+});
+it('forged owner-resolution labels fail closed rather than clearing a report', async () => {
+  await record('alpha.a'); await record('alpha.b'); await index();
+  const report = createConflictReport(paths, { repoId: 'alpha', recordIds: ['alpha.a', 'alpha.b'], explanation: 'Synthetic forged resolution.' });
+  const data = JSON.parse(await readFile(report.path, 'utf8'));
+  await writeFile(report.path, JSON.stringify({ ...data, state: 'resolved', resolution: { approver: 'intruder', approved_at: '2026-10-13T00:00:00Z', reason: 'Forged label.' } }));
+  await expect(context()).rejects.toMatchObject({ code: 'CONFLICT_STATE_UNAVAILABLE' });
+});
+it('locked and malformed review attempts leave authoritative report state intact', async () => {
+  await record('alpha.a'); await record('alpha.b'); await index();
+  const report = createConflictReport(paths, { repoId: 'alpha', recordIds: ['alpha.a', 'alpha.b'], explanation: 'Synthetic locked report.' });
+  const expectedHash = createHash('sha256').update(await readFile(report.path)).digest('hex');
+  const request = { repoId: 'alpha', id: report.id, expectedHash, state: 'rejected', reason: 'Reviewed.' };
+  await writeFile(report.path + '.lock', 'Synthetic held lock');
+  await expect((conflictStore as any).resolveConflictReport(paths, request)).rejects.toMatchObject({ code: 'CONFLICT' });
+  await expect((conflictStore as any).resolveConflictReport(paths, { ...request, reason: '' })).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+  expect(JSON.parse(await readFile(report.path, 'utf8')).state).toBe('candidate');
+});
+it('explicit history never grants access to candidate or denied records, and UTF-8 cuts stay valid', async () => {
+  await record('alpha.candidate', { status: 'candidate' }); await record('alpha.a', { title: '界 Synthetic' }); await index();
+  await expect(service.get('alpha.candidate', 'alpha', 8192, true)).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  const complete = await service.get('alpha.a', 'alpha'); const limit = Buffer.byteLength(complete.body.slice(0, complete.body.indexOf('界'))) + 1;
+  const cut = await service.get('alpha.a', 'alpha', limit); expect(cut.truncated).toBe(true); expect(cut.body).not.toContain('\ufffd');
+});
+it('conflicts on a returned graph neighbor remain visible', async () => {
+  await record('alpha.a', { title: 'Needle', relationships: [{ type: 'related-to', target: 'alpha.b' }] });
+  await record('alpha.b', { relationships: [{ type: 'contradicts', target: 'alpha.c' }] }); await record('alpha.c'); await index();
+  const result = await context({ task: 'Needle', depth: 1 });
+  expect(result.unresolved_conflicts).toHaveLength(1); expect(result.results.find((item) => item.id === 'alpha.b')?.requires_review).toBe(true);
+});
+it('conflict expansion respects the configured visit limit instead of traversing an entire chain', async () => {
+  await record('alpha.a', { title: 'Needle', relationships: [{ type: 'contradicts', target: 'alpha.b' }] });
+  await record('alpha.b', { relationships: [{ type: 'contradicts', target: 'alpha.c' }] }); await record('alpha.c'); await index();
+  paths.config.budgets.maxVisited = 1;
+  expect((await context({ task: 'Needle', depth: 0 })).status).toBe('CONTEXT_BUDGET_EXCEEDED');
+});
+it('explicit owner inspection uses the principal allowlist without granting denied cross-repo access', async () => {
+  paths.config.repositories.push({ id: 'beta', name: 'Beta', owner: 'local-owner', team: 'one', path: path.join(root, 'source'), aliases: [] });
+  await record('alpha.a'); await record('beta.b', { scope: { kind: 'repo', repo_id: 'beta' } }); await index();
+  const report = createConflictReport(paths, { repoId: 'alpha', recordIds: ['alpha.a', 'beta.b'], explanation: 'Synthetic authorized cross-repo owner inspection.' });
+  expect((await (conflictStore as any).inspectConflictReport(paths, 'alpha', report.id)).report.record_ids).toEqual(['alpha.a', 'beta.b']);
+  paths.config.repositories = paths.config.repositories.filter((repo) => repo.id !== 'beta');
+  await expect((conflictStore as any).inspectConflictReport(paths, 'alpha', report.id)).rejects.toMatchObject({ code: 'NOT_FOUND' });
+});
