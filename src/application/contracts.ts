@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { knowledgeSnapshotSchema, checkoutDriftSchema, applicationSourceSchema } from '../indexing/provenance.js';
+import { publicKnowledgeSnapshotSchema as knowledgeSnapshotSchema, checkoutDriftSchema, applicationSourceSchema } from '../indexing/provenance.js';
 
 export const contractVersion = 1 as const;
 const text = z.string().min(1).max(200);

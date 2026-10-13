@@ -18,6 +18,9 @@ export const knowledgeSnapshotSchema = z.object({
 export const checkoutDriftSchema = z.object({ state: z.enum(['matched', 'changed', 'unavailable']), head_revision: sha.nullable(), head_changed: z.boolean().nullable(), content_changed: z.boolean().nullable() }).strict();
 export const applicationSourceSchema = z.object({ repo_id: z.string().min(1).max(200), requested_revision: sha.nullable() }).strict().nullable();
 export type KnowledgeSnapshot = z.infer<typeof knowledgeSnapshotSchema>;
+// Counts are persisted for integrity checks, not disclosed across access scopes.
+export const publicKnowledgeSnapshotSchema = z.object(knowledgeSnapshotSchema.shape).omit({ record_count: true });
+export type KnowledgeSnapshotMetadata = z.infer<typeof publicKnowledgeSnapshotSchema>;
 export type CheckoutDrift = z.infer<typeof checkoutDriftSchema>;
 export const normalizeBody = (value: string) => value.replace(/\r\n/g, '\n');
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
@@ -87,7 +90,7 @@ export function readSnapshot(database: DatabaseSync): KnowledgeSnapshot {
 export function snapshotRevision(snapshot: KnowledgeSnapshot): string {
   return snapshot.source_state === 'clean' ? snapshot.knowledge_commit! : `${snapshot.source_state}:${snapshot.content_fingerprint}`;
 }
-export function checkoutDrift(root: string, snapshot: KnowledgeSnapshot): CheckoutDrift {
+export function checkoutDrift(root: string, snapshot: KnowledgeSnapshotMetadata): CheckoutDrift {
   try {
     const files: FileInput[] = [];
     const walk = (directory: string, prefix = 'knowledge') => {
@@ -109,6 +112,17 @@ export function checkoutDrift(root: string, snapshot: KnowledgeSnapshot): Checko
   } catch { return { state: 'unavailable', head_revision: null, head_changed: null, content_changed: null }; }
 }
 export function provenance(database: DatabaseSync, root: string) {
-  const knowledge_snapshot = readSnapshot(database);
-  return { knowledge_revision: snapshotRevision(knowledge_snapshot), index_generation: knowledge_snapshot.generation, knowledge_snapshot, checkout_drift: checkoutDrift(root, knowledge_snapshot) };
+  const stored = readSnapshot(database);
+  const { record_count: _count, ...knowledge_snapshot } = stored;
+  return { knowledge_revision: snapshotRevision(stored), index_generation: knowledge_snapshot.generation, knowledge_snapshot, checkout_drift: checkoutDrift(root, knowledge_snapshot) };
+}
+export async function optionalProvenance(root: string, runtimeRoot: string) {
+  try { await readFile(path.join(runtimeRoot, 'index-active.json'), 'utf8'); }
+  catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return { knowledge_revision: null, index_generation: null, knowledge_snapshot: null, checkout_drift: null };
+    throw new DomainError('INDEX_UNAVAILABLE', 'The active index is unavailable.');
+  }
+  const { openIndex } = await import('./database.js');
+  const database = await openIndex(runtimeRoot);
+  try { return provenance(database, root); } finally { database.close(); }
 }

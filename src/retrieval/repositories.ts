@@ -6,7 +6,7 @@ import { z } from 'zod';
 import type { ResolvedPaths } from '../core/config.js';
 import { DomainError } from '../capture/candidate-store.js';
 import { parseKnowledgeMarkdown } from '../validation/record.js';
-import { provenance, knowledgeSnapshotSchema, checkoutDriftSchema, type KnowledgeSnapshot, type CheckoutDrift } from '../indexing/provenance.js';
+import { provenance, publicKnowledgeSnapshotSchema, checkoutDriftSchema, type KnowledgeSnapshotMetadata, type CheckoutDrift } from '../indexing/provenance.js';
 
 export const repositoryListInput = z.object({
   query: z.string().trim().max(200).optional(),
@@ -25,7 +25,7 @@ export const repositoryListOutput = z.object({
   next_cursor: z.string().nullable(),
   index_generation: z.string().nullable(),
   index_status: z.enum(['available', 'unavailable']),
-  knowledge_snapshot: knowledgeSnapshotSchema.nullable(), checkout_drift: checkoutDriftSchema.nullable(), knowledge_revision: z.string().nullable()
+  knowledge_snapshot: publicKnowledgeSnapshotSchema.nullable(), checkout_drift: checkoutDriftSchema.nullable(), knowledge_revision: z.string().nullable()
 });
 type Entry = z.infer<typeof repositoryEntry>;
 const digest = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
@@ -42,7 +42,7 @@ export async function listRepositories(paths: ResolvedPaths, request: unknown = 
   }]));
   let generation: string | null = null;
   let status: 'available' | 'unavailable' = 'unavailable';
-  let knowledge_snapshot: KnowledgeSnapshot | null = null;
+  let knowledge_snapshot: KnowledgeSnapshotMetadata | null = null;
   let checkout_drift: CheckoutDrift | null = null;
   let knowledge_revision: string | null = null;
   let indexFile: string | undefined;

@@ -6,11 +6,11 @@ import type { KnowledgeRecord } from '../core/types.js';
 import { openIndex } from '../indexing/database.js';
 import { parse } from 'yaml';
 import { DomainError } from '../capture/candidate-store.js';
-import { provenance, type KnowledgeSnapshot, type CheckoutDrift } from '../indexing/provenance.js';
+import { provenance, type KnowledgeSnapshotMetadata, type CheckoutDrift } from '../indexing/provenance.js';
 
 interface StoredRecord { id: string; title: string; summary: string; type: string; scope_kind: string; scope_json: string; status: string; body: string; content_hash: string }
 export interface KnowledgeSummary { id: string; title: string; summary: string; type: string; scope: unknown; matched_reasons: string[]; evidence: unknown[]; freshness: string; relationships: Array<{ type: string; target: string }> }
-export interface ContextBundle { status: 'ok' | 'CONTEXT_BUDGET_EXCEEDED'; knowledge_revision: string; index_generation: string; knowledge_snapshot: KnowledgeSnapshot; checkout_drift: CheckoutDrift; application_source: { repo_id: string; requested_revision: string | null } | null; results: KnowledgeSummary[]; truncated: boolean; estimated_tokens: number; estimator_name: string; unresolved_conflicts: string[]; omitted_result_count: number; omitted_mandatory_ids?: string[] }
+export interface ContextBundle { status: 'ok' | 'CONTEXT_BUDGET_EXCEEDED'; knowledge_revision: string; index_generation: string; knowledge_snapshot: KnowledgeSnapshotMetadata; checkout_drift: CheckoutDrift; application_source: { repo_id: string; requested_revision: string | null } | null; results: KnowledgeSummary[]; truncated: boolean; estimated_tokens: number; estimator_name: string; unresolved_conflicts: string[]; omitted_result_count: number; omitted_mandatory_ids?: string[] }
 
 function tokenize(query: string): string {
   const terms = query.toLowerCase().match(/[\p{L}\p{N}_.-]+/gu) ?? [];
