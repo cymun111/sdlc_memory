@@ -9,7 +9,7 @@ import { stringify } from 'yaml';
 import { z } from 'zod';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
-import { resolvePaths, type ResolvedPaths } from '../src/core/config.js';
+import { resolvePaths } from '../src/core/config.js';
 import { buildActiveGeneration } from '../src/indexing/build-index.js';
 import { KnowledgeService, type ContextBundle } from '../src/retrieval/service.js';
 import { createMcpServer } from '../src/mcp/server.js';
@@ -22,7 +22,15 @@ const scope = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('cross-repo'), repo_ids: z.array(z.string()).min(2) }).strict()
 ]);
 const record = z.object({ id: z.string(), scope, title: z.string(), summary: z.string(), type: z.enum(['practice', 'approved-policy']).default('practice'), status: z.enum(['verified', 'disputed', 'superseded']).default('verified'), relationships: z.array(z.object({ type: z.enum(['depends-on', 'related-to', 'contradicts']), target: z.string() }).strict()).default([]), code_revision: z.literal('old').optional(), denied_evidence: z.boolean().optional() }).strict();
-const task = z.object({ id: z.string(), repo: z.string(), task: z.string(), annotation: z.string().min(10), expected: z.array(z.string()), scenario: z.enum(['normal', 'conflict', 'stale-policy', 'disputed-policy', 'no-index']).default('normal'), depth: z.number().int().min(0).max(2).optional(), topics: z.array(z.string()).optional(), changed_paths: z.array(z.string()).optional(), max_results: z.number().int().positive().optional(), status: z.enum(['ok', 'POLICY_REVIEW_REQUIRED', 'CONTEXT_BUDGET_EXCEEDED']).default('ok'), error: z.enum(['NOT_FOUND', 'INDEX_UNAVAILABLE']).optional(), freshness: z.record(z.string(), z.string()).default({}), conflict: z.boolean().default(false), issue: z.enum(['needs_revalidation', 'disputed']).optional() }).strict();
+const task = z.object({
+  id: z.string(), repo: z.string(), task: z.string(), annotation: z.string().min(10), expected: z.array(z.string()),
+  baseline_missing: z.array(z.string()).default([]),
+  scenario: z.enum(['normal', 'conflict', 'stale-policy', 'disputed-policy', 'no-index']).default('normal'),
+  depth: z.number().int().min(0).max(2).optional(), topics: z.array(z.string()).optional(), changed_paths: z.array(z.string()).optional(),
+  max_results: z.number().int().positive().optional(), status: z.enum(['ok', 'POLICY_REVIEW_REQUIRED', 'CONTEXT_BUDGET_EXCEEDED']).default('ok'),
+  error: z.enum(['NOT_FOUND', 'INDEX_UNAVAILABLE']).optional(), freshness: z.record(z.string(), z.string()).default({}),
+  conflict: z.boolean().default(false), issue: z.enum(['needs_revalidation', 'disputed']).optional()
+}).strict();
 export const fixtureSchema = z.object({ version: z.literal('1.0.0'), description: z.string(), records: z.array(record).min(1), tasks: z.array(task).min(30) }).strict().superRefine((fixture, context) => {
   for (const [name, items] of [['records', fixture.records], ['tasks', fixture.tasks]] as const) {
     if (new Set(items.map((item) => item.id)).size !== items.length) context.addIssue({ code: 'custom', message: `Duplicate ${name} identifiers` });
@@ -90,6 +98,11 @@ function status(envelope: Envelope): string {
 export function exposure(envelope: Envelope, denied: string[]): string[] {
   const serialized = JSON.stringify(envelope);
   return denied.filter((value) => serialized.includes(value));
+}
+export function baselineFailures(expected: string[], knownMissing: string[], actual: string[]): string[] {
+  const required = expected.filter((id) => !knownMissing.includes(id));
+  return [...required.filter((id) => !actual.includes(id)).map((id) => `Lost baseline record ${id}`),
+    ...actual.filter((id) => !required.includes(id)).map((id) => `Unexpected baseline record ${id}`)];
 }
 function comparable(envelope: Envelope): string { return JSON.stringify(envelope); }
 
@@ -167,7 +180,8 @@ export async function evaluateRetrieval(fixturePath = defaultFixturePath) {
         const mandatory = item.error ? [] : records.filter((definition) => definition.type === 'approved-policy' && definition.status !== 'superseded' && applicable(definition, item.repo)).map((definition) => definition.id);
         const denied = records.filter((definition) => !applicable(definition, item.repo)).map((definition) => definition.id);
         // Stable sentinel checks include denied titles, summaries, repo IDs and projected source paths.
-        const sentinels = [...denied, 'DENIED_VAULT_TITLE', 'DENIED_VAULT_SUMMARY', 'DENIED_TEAM_TITLE', 'DENIED_TEAM_SUMMARY', 'private/vault-secret.ts', '"vault"', '"secretteam"'];
+        const deniedText = records.filter((definition) => !applicable(definition, item.repo)).flatMap((definition) => [definition.title, definition.summary]);
+        const sentinels = [...denied, ...deniedText, 'private/vault-secret.ts', '"vault"', '"secretteam"'];
         // An error task itself contains the denied lookup, but no task text should be echoed into the payload.
         const exposed = [...new Set([direct, mcp, full].flatMap((measurement) => exposure(measurement.envelope, sentinels)))];
         const failures: string[] = [];
@@ -181,6 +195,9 @@ export async function evaluateRetrieval(fixturePath = defaultFixturePath) {
         const relevant = recall(item.expected, recordIds(serviceEnvelope));
         const baseline = recall(item.expected, recordIds(full.envelope));
         const policies = recall(mandatory, policyReferences(serviceEnvelope));
+        failures.push(...baselineFailures(item.expected, item.baseline_missing, recordIds(serviceEnvelope).filter((id) => !mandatory.includes(id))));
+        if (!item.error && baseline.missing.length) failures.push(`Full-document baseline missed ${baseline.missing.join(', ')}`);
+        if (policies.missing.length) failures.push(`Missing mandatory policy references ${policies.missing.join(', ')}`);
         const stale = data.results?.filter((result) => ['needs_revalidation', 'dirty_worktree', 'unknown', 'revision_not_checked'].includes(result.freshness)).map((result) => ({ id: result.id, freshness: result.freshness })) ?? [];
         cases.push({ id: item.id, annotation: item.annotation, scenario, input: { ...input, source_revision: revisions[item.repo]?.current ?? null }, expected: item.expected, mandatory, denied_record_ids: denied, service: direct, mcp, full_document: full, relevant, full_document_relevant: baseline, mandatory_policy: policies, stale_results: stale, unauthorized_exposures: exposed, interface_match: comparable(serviceEnvelope) === comparable(mcpEnvelope), expectation_failures: failures, regressions: baseline.missing.length ? relevant.missing.filter((id) => !baseline.missing.includes(id)) : relevant.missing });
       }
