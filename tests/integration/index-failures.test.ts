@@ -11,11 +11,16 @@ import { KnowledgeApplication } from '../../src/application/service.js';
 import { createMcpServer } from '../../src/mcp/server.js';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
+import { validateKnowledgeTree } from '../../src/validation/validate-tree.js';
 
-const faults = vi.hoisted(() => ({ readDirectory: '', switchManifest: false }));
+const faults = vi.hoisted(() => ({ readDirectory: '', readRecord: '', switchManifest: false }));
 vi.mock('node:fs/promises', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:fs/promises')>();
   return { ...actual,
+    readFile: (...args: Parameters<typeof actual.readFile>) => {
+      if (String(args[0]) === faults.readRecord) return Promise.reject(Object.assign(new Error('private file failure'), { code: 'EACCES' }));
+      return actual.readFile(...args);
+    },
     readdir: (...args: Parameters<typeof actual.readdir>) => {
       if (String(args[0]) === faults.readDirectory) return Promise.reject(Object.assign(new Error('private denied path'), { code: 'EACCES' }));
       return actual.readdir(...args);
@@ -39,7 +44,7 @@ beforeEach(async () => {
   service = new KnowledgeService(paths);
 });
 afterEach(async () => {
-  faults.readDirectory = ''; faults.switchManifest = false;
+  faults.readDirectory = ''; faults.readRecord = ''; faults.switchManifest = false;
   await rm(root, { recursive: true, force: true });
 });
 async function record(id = 'sample.first', relationships: Array<{ type: string; target: string }> = [], extras: object = {}) {
@@ -120,6 +125,26 @@ it('rejects corrupt databases and malformed manifests with sanitized unavailable
 it('successful no-match searches stay successful empty results', async () => {
   await baseline();
   expect((await service.taskContext({ repo_id: 'sample', task: 'nonexistent' })).results).toEqual([]);
+});
+it('validation reports unavailable required directories and unresolved graphs', async () => {
+  await record('sample.first', [{ type: 'related-to', target: 'missing.record' }]);
+  expect(await validateKnowledgeTree(root)).toEqual(expect.arrayContaining([expect.objectContaining({ message: expect.stringMatching(/relationship|reference/i) })]));
+  faults.readDirectory = path.join(root, 'knowledge');
+  expect(await validateKnowledgeTree(root)).toEqual(expect.arrayContaining([expect.objectContaining({ message: expect.stringMatching(/unavailable/i) })]));
+});
+it('record read failures preserve the last-good index', async () => {
+  const good = await baseline(); faults.readRecord = path.join(root, 'knowledge', 'sample.first.md');
+  await expect(buildActiveGeneration(root, paths.runtimeRoot)).rejects.toMatchObject({ code: 'INDEX_SOURCE_UNAVAILABLE' });
+  faults.readRecord = ''; await preserved(good.generation);
+});
+it('rejects active manifest path escapes and generation mismatches', async () => {
+  await baseline();
+  const filename = path.join(paths.runtimeRoot, 'index-active.json');
+  const manifest = JSON.parse(await readFile(filename, 'utf8'));
+  await writeFile(filename, JSON.stringify({ ...manifest, generation: 'wrong-generation' }));
+  await expect(service.search('Synthetic', 'sample')).rejects.toMatchObject({ code: 'INDEX_UNAVAILABLE' });
+  await writeFile(filename, JSON.stringify({ ...manifest, database: '../private.sqlite' }));
+  await expect(service.search('Synthetic', 'sample')).rejects.toMatchObject({ code: 'INDEX_UNAVAILABLE' });
 });
 
 it('an SDK client receives distinct missing-index and query errors with no private metadata', async () => {

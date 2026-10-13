@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { copyFile, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { DatabaseSync } from 'node:sqlite';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -78,7 +79,18 @@ try {
   assert.equal((await call('submit_learning', submission)).content_hash, updated.content_hash);
   assert.equal((await client.callTool({ name: 'get_knowledge', arguments: { id: 'test.candidate' } })).isError, true);
   assert.equal((await call('search_knowledge', { query: 'Synthetic', repo_id: 'test-app' })).results.length, 2);
-  console.log('MCP stdio passed: nine-tool discovery, repository discovery/map/CLI parity, context, reads, relationships, scope denial, generation identity, submission, update, stale-hash conflict and replay.');
+  const activeManifest = JSON.parse(await readFile(path.join(paths.runtimeRoot, 'index-active.json'), 'utf8'));
+  const database = new DatabaseSync(path.join(paths.runtimeRoot, activeManifest.database));
+  database.exec('DROP TABLE record_search'); database.close();
+  const queryFailure = await client.callTool({ name: 'get_task_context', arguments: { repo_id: 'test-app', task: 'Synthetic' } });
+  assert.equal(queryFailure.isError, true);
+  assert.equal((queryFailure.structuredContent as any).data.error.code, 'INDEX_QUERY_FAILED');
+  assert.ok(!JSON.stringify(queryFailure).includes(root));
+  await rm(path.join(paths.runtimeRoot, 'index-active.json'));
+  const unavailable = await client.callTool({ name: 'search_knowledge', arguments: { repo_id: 'test-app', query: 'Synthetic' } });
+  assert.equal(unavailable.isError, true);
+  assert.equal((unavailable.structuredContent as any).data.error.code, 'INDEX_UNAVAILABLE');
+  console.log('MCP stdio passed: nine-tool discovery, repository/map/CLI parity, scoped reads, relationships, generation identity, candidate updates/replay, and explicit query/unavailable-index failures.');
 } finally {
   await client.close();
   await rm(root, { recursive: true, force: true });
