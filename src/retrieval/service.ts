@@ -20,10 +20,14 @@ export interface ContextBundle { status: 'ok' | 'CONTEXT_BUDGET_EXCEEDED' | 'POL
 type Item = { stored: StoredRecord; record: KnowledgeRecord };
 type Access = { target?: RegisteredRepo; records: Item[]; all: Item[]; readableIds: Set<string> };
 
-function tokenize(query: string): string {
-  const terms = query.toLowerCase().match(/[\p{L}\p{N}_.-]+/gu) ?? [];
-  if (!terms.length) return '""';
-  return terms.slice(0, 32).map((term) => `"${term.replaceAll('"', '""')}"`).join(' AND ');
+function controls(options: ReadOptions): ReadOptions {
+  const result = readOptions.safeParse(options);
+  if (!result.success) throw new DomainError('VALIDATION_ERROR', 'Invalid retrieval controls.');
+  return result.data;
+}
+
+function integer(value: number | undefined, minimum = 1): void {
+  if (value !== undefined && (!Number.isSafeInteger(value) || value < minimum)) throw new DomainError('VALIDATION_ERROR', 'Invalid retrieval limit.');
 }
 
 function decodeRecord(row: Record<string, SQLOutputValue> | undefined): StoredRecord | undefined {
@@ -141,7 +145,8 @@ export class KnowledgeService {
   #readKey(database: DatabaseSync, request: unknown) { return snapshot([this.#metadata(database),this.paths.config,request]); }
 
   async search(query: string, repoId?: string, limit = 10, options: ReadOptions = {}) {
-    options = readOptions.parse(options);
+    integer(limit);
+    options = controls(options);
     return this.#withIndex((database) => {
       const accessible = this.#accessibleSync(database, repoId);
       const conflicts = this.#conflicts(accessible);
@@ -158,7 +163,7 @@ export class KnowledgeService {
   }
 
   async get(id: string, repoId?: string, byteLimit = 8192, includeHistory = false, options: ReadOptions = {}) {
-    options = readOptions.parse(options);
+    options = controls(options);
     if (!Number.isInteger(byteLimit) || byteLimit < 1 || byteLimit > 32768 || typeof includeHistory !== 'boolean') throw new DomainError('VALIDATION_ERROR', 'Invalid direct-read options.');
     return this.#withIndex((database) => {
       if (repoId && !localRepo(this.paths.config, repoId)) throw new DomainError('NOT_FOUND', 'Repository is not registered.');
@@ -189,7 +194,8 @@ export class KnowledgeService {
   }
 
   async related(id: string, repoId?: string, relationTypes: string[] = [], depth = 1, limit = 12, options: ReadOptions = {}) {
-    options = readOptions.parse(options);
+    integer(limit); integer(depth, 0);
+    options = controls(options);
     return this.#withIndex((database) => {
       const access = this.#accessibleSync(database, repoId);
       const conflicts = this.#conflicts(access);
@@ -206,7 +212,7 @@ export class KnowledgeService {
         const next: string[] = [];
         for (const current of frontier) {
           const adjacent = database.prepare(`SELECT source_id, relation, target_id FROM edges
-            WHERE source_id = ? OR target_id = ?`).all(current, current) as Array<Record<string, SQLOutputValue>>;
+            WHERE source_id = ? OR target_id = ? ORDER BY source_id, relation, target_id`).all(current, current) as Array<Record<string, SQLOutputValue>>;
           for (const row of adjacent) {
             const relation = String(row.relation);
             if (relationTypes.length && !relationTypes.includes(relation)) continue;
@@ -222,18 +228,42 @@ export class KnowledgeService {
       }
       const ids = [...seen].filter((node) => node !== id).sort();
       const key = this.#readKey(database,['related',id,access.target?.id,[...relationTypes].sort(),maximumDepth,maximumResults,ids,edges,conflicts,options.max_bytes,options.max_tokens]);
-      const start = offsetFor(options.cursor,key,ids.length);
-      const nodes = ids.slice(start,start+maximumResults).map((node) => {
-        const item = accessible.get(node)!;
-        return summary(item.stored, item.record, 'related-record', this.#freshness(item.record, access), this.paths.config, access.readableIds, conflicts.some((ref) => ref.record_ids.includes(node)));
-      });
-      const make = () => { const relevant=conflicts.filter((ref)=>ref.record_ids.some((recordId)=>recordId===id || nodes.some((node)=>node.id===recordId))).slice(0,12); return measured({nodes,edges:edges.filter((edge)=>(edge.source===id || nodes.some((node)=>node.id===edge.source)) && (edge.target===id || nodes.some((node)=>node.id===edge.target))).slice(0,maximumVisited),visited_nodes:seen.size,conflicts:relevant,unresolved_conflicts:relevant.map((ref)=>ref.id),...this.#metadata(database),next_cursor:start+nodes.length<ids.length?continuation(key,start+nodes.length):null,truncated:start+nodes.length<ids.length || seen.size>=maximumVisited,omitted_result_count:ids.length-start-nodes.length}); };
-      while (!fits(make(),limits(this.paths.config,options))) { if (nodes.length<=1) budgetError(); nodes.pop(); }
+      // Independent edge events preserve links joining nodes on different pages.
+      const events = [...ids.map((node)=>({kind:'node' as const,node})),...edges.map((edge)=>({kind:'edge' as const,edge}))];
+      const start = offsetFor(options.cursor,key,events.length);
+      const nodes: KnowledgeSummary[] = [];
+      const pageEdges: typeof edges = [];
+      let end = start;
+      const make = () => {
+        const pageIds = new Set([id,...nodes.map((node)=>node.id),...pageEdges.flatMap((edge)=>[edge.source,edge.target])]);
+        const relevant=conflicts.filter((ref)=>ref.record_ids.some((recordId)=>pageIds.has(recordId))).slice(0,12);
+        return measured({nodes,edges:pageEdges,visited_nodes:seen.size,conflicts:relevant,unresolved_conflicts:relevant.map((ref)=>ref.id),...this.#metadata(database),next_cursor:end<events.length?continuation(key,end):null,truncated:end<events.length || seen.size>=maximumVisited,omitted_result_count:events.slice(end).filter((event)=>event.kind==='node').length,omitted_edge_count:events.slice(end).filter((event)=>event.kind==='edge').length});
+      };
+      while (end<events.length) {
+        const event=events[end]!;
+        if (event.kind==='node') {
+          if (nodes.length>=maximumResults) break;
+          const item=accessible.get(event.node)!;
+          nodes.push(summary(item.stored,item.record,'related-record',this.#freshness(item.record,access),this.paths.config,access.readableIds,conflicts.some((ref)=>ref.record_ids.includes(event.node))));
+        } else {
+          if (pageEdges.length>=maximumVisited) break;
+          pageEdges.push(event.edge);
+        }
+        end++;
+        if (!fits(make(),limits(this.paths.config,options))) {
+          end--;
+          if (event.kind==='node') nodes.pop(); else pageEdges.pop();
+          break;
+        }
+      }
+      if (!fits(make(),limits(this.paths.config,options)) || (end===start && events.length>start)) budgetError();
       return make();
     });
   }
 
   async taskContext(input: { repo_id: string; task: string; topics?: string[]; changed_paths?: string[]; source_revision?: string; max_tokens?: number; max_results?: number; depth?: number;expected_generation?:string;max_bytes?:number }): Promise<ContextBundle> {
+    integer(input.max_results); integer(input.max_tokens); integer(input.max_bytes); integer(input.depth,0);
+    controls({...(input.expected_generation===undefined?{}:{expected_generation:input.expected_generation}),...(input.max_bytes===undefined?{}:{max_bytes:input.max_bytes})});
     return this.#withIndex((database) => {
       const access = this.#accessibleSync(database, input.repo_id);
       checkGeneration(this.#metadata(database).index_generation,input.expected_generation);
