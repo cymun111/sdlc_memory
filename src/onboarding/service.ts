@@ -168,6 +168,7 @@ export async function setupRepository(paths: ResolvedPaths, request: unknown) {
 export async function uninstallRepository(paths: ResolvedPaths, request: unknown) {
   const input = parseRequest(uninstallRequest,request); const artifact = files(paths,input.repo_id); await safeDirectory(artifact.directory);
   const receipt = await receiptAt(artifact.receipt); if (!receipt || receipt.repo_id !== input.repo_id) return fail('NOT_FOUND','No owned onboarding receipt exists.');
+  await safeDirectory(path.dirname(artifact.map));
   if (receipt.principal !== paths.config.principal) fail('FORBIDDEN','Onboarding receipt belongs to another principal.');
   await safeDirectory(artifact.directory,true);
   try { await writeFile(artifact.lock,'uninstall\n',{flag:'wx',mode:0o600}); } catch { return fail('CONFLICT','Onboarding lock requires review.'); }
