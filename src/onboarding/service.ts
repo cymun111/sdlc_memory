@@ -87,7 +87,7 @@ async function probe(paths: ResolvedPaths, repo: string, revision: string, disco
 export async function setupRepository(paths: ResolvedPaths, request: unknown) {
   const input = parseRequest(setupRequest,request); const validated = await validate(paths,input); const artifact = files(paths,input.repository.id);
   // Reload durable settings for independent invocations; the explicit roots/principal remain trusted.
-  if (await readRegular(paths.configPath)) paths.config = (await resolvePaths({root:paths.knowledgeRoot})).config;
+  if (await readRegular(paths.configPath)) paths.config = (await resolvePaths({root:paths.knowledgeRoot,config:paths.configPath})).config;
   const previous = await receiptAt(artifact.receipt);
   if (previous && (previous.repo_id !== input.repository.id || previous.principal !== paths.config.principal)) fail('CONFLICT','Onboarding receipt belongs to a different identity.');
   const matches = paths.config.repositories.filter((repo) => repo.id === input.repository.id || repo.aliases.includes(input.repository.id));
@@ -110,7 +110,7 @@ export async function setupRepository(paths: ResolvedPaths, request: unknown) {
   try { await writeFile(artifact.lock,'onboarding\n',{flag:'wx',mode:0o600}); }
   catch { return fail('CONFLICT','Another onboarding operation or retained lock requires review.'); }
   try {
-    if (hash(await receiptAt(artifact.receipt)) !== hash(previous) || (await readRegular(paths.configPath) && hash((await resolvePaths({root:paths.knowledgeRoot})).config) !== hash(paths.config))) fail('CONFLICT','Setup inputs changed while acquiring the lock; retry.');
+    if (hash(await receiptAt(artifact.receipt)) !== hash(previous) || (await readRegular(paths.configPath) && hash((await resolvePaths({root:paths.knowledgeRoot,config:paths.configPath})).config) !== hash(paths.config))) fail('CONFLICT','Setup inputs changed while acquiring the lock; retry.');
     const receipt: OnboardingReceipt = previous && previous.state !== 'uninstalled' ? previous : {
       schema_version:1,receipt_id:randomUUID(),repo_id:registration.id,principal:paths.config.principal,fingerprint:'',state:'configured',created_at:now(),updated_at:now(),source_revision:null,index_generation:null,
       registration_before:existing??null,registration_snapshot:registration,owned_registration:!existing,owned_map:!(await readRegular(artifact.map,32*1024*1024)),map_hash:null,launch_hash:null,
@@ -139,7 +139,11 @@ export async function setupRepository(paths: ResolvedPaths, request: unknown) {
     if (!await step('map',mapKey,async () => { await buildRepositoryMap(paths,registration.id,validated.revision); receipt.map_hash = bytesHash((await readRegular(artifact.map,32*1024*1024))!); receipt.source_revision = validated.revision; })) return publicResult(receipt);
     let inputs;
     try { inputs = await captureBuildInputs(paths.knowledgeRoot); }
-    catch { receipt.steps.find((value) => value.name === 'index')!.state = 'failed'; receipt.state = 'failed'; await persist(); return publicResult(receipt); }
+    catch {
+      const state = receipt.steps.find((value) => value.name === 'index')!;
+      state.state = 'failed'; state.attempts++; state.retryable = true; state.diagnostic = 'Knowledge inputs are unavailable; repair the checkout/schema and rerun setup.';
+      receipt.state = 'failed'; await persist(); return publicResult(receipt);
+    }
     const indexKey = hash([inputs.contentFingerprint,inputs.schemaFingerprint,inputs.git]);
     const metadata = await optionalProvenance(paths.knowledgeRoot,paths.runtimeRoot).catch(() => null);
     if (!metadata?.index_generation) receipt.steps.find((value) => value.name === 'index')!.state = 'pending';
@@ -168,7 +172,7 @@ export async function uninstallRepository(paths: ResolvedPaths, request: unknown
   await safeDirectory(artifact.directory,true);
   try { await writeFile(artifact.lock,'uninstall\n',{flag:'wx',mode:0o600}); } catch { return fail('CONFLICT','Onboarding lock requires review.'); }
   try {
-    if (await readRegular(paths.configPath)) paths.config = (await resolvePaths({root:paths.knowledgeRoot})).config;
+    if (await readRegular(paths.configPath)) paths.config = (await resolvePaths({root:paths.knowledgeRoot,config:paths.configPath})).config;
     if (receipt.principal !== paths.config.principal) fail('FORBIDDEN','Onboarding principal changed; preserve settings for review.');
     const current = paths.config.repositories.find((repo) => repo.id === receipt.repo_id);
     if (receipt.owned_registration && current && hash(current) !== hash(receipt.registration_snapshot)) fail('CONFLICT','Registration changed externally; preserve settings for review.');
