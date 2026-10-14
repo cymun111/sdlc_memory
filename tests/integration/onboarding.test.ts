@@ -195,3 +195,9 @@ it('uninstall rejects a linked map parent before deleting an owned-looking sourc
   expect(await readFile(path.join(source,filename))).toEqual(body);
   expect(await readFile(paths.configPath,'utf8')).toBe(config);
 });
+it('scoped-read verification rejects incomplete MCP data instead of trusting its status label', async () => {
+  vi.spyOn(Client.prototype,'callTool').mockResolvedValueOnce({content:[],structuredContent:{ok:true,data:{application_source:{repo_id:'sample-app'},status:'ok'}}});
+  const result = await application.setup(request());
+  expect(result.state).toBe('failed');
+  expect(result.steps?.find((step) => step.name === 'scoped_read')).toMatchObject({state:'failed',retryable:true});
+});
