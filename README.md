@@ -76,7 +76,7 @@ The first extractor supports generic Git structure and npm package manifests. It
 
 ## Repository status
 
-The additive [SDLC Command integration contract v1](docs/sdlc-command-integration.md) exposes an in-process application facade for setup planning, readiness, scoped retrieval, prepared delivery, and candidate capture. Setup application and verified agent consumption remain planned; the facade does not establish SDLC Command integration. Existing CLI and MCP contracts are unchanged.
+The additive [SDLC Command integration contract v1](docs/sdlc-command-integration.md) exposes an in-process facade for [repeatable local setup](docs/repeatable-onboarding.md), readiness, scoped retrieval, prepared delivery, and candidate capture. `knowledge setup plan|apply|status|uninstall` provides durable step receipts and real stdio service verification. Native-client edits, verified agent consumption and SDLC Command wiring remain unimplemented. MCP tool names remain unchanged; strict facade consumers must accept the documented setup/readiness output additions.
 
 Index reads require an existing generation and return explicit unavailable/query errors rather than creating an empty index. Rebuilds validate references and supersession, preserve the last good generation on failure, and record bounded build diagnostics. See [index recovery](docs/operations.md) and the [AEF-002 test-first evidence](docs/aef-002-tdd.md).
 
