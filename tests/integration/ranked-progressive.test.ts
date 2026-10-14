@@ -120,3 +120,10 @@ it('AEF-010 context and body controls reject nonfinite values before querying', 
   await record('alpha.a'); await index();
   await expect(task({max_results:NaN})).rejects.toMatchObject({code:'VALIDATION_ERROR'});
 });
+it('AEF-010 returns a complete body when it fits but cursor overhead would not', async () => {
+  await record('alpha.a',{},'A short fictional body.'); await index();
+  const full=await service.get('alpha.a','alpha');
+  paths.config.budgets.maxBytes=Buffer.byteLength(JSON.stringify({ok:true,data:full}));
+  const result=await service.get('alpha.a','alpha');
+  expect(result.body).toBe(full.body); expect(result.next_cursor).toBeNull();
+});
