@@ -185,6 +185,9 @@ export class KnowledgeService {
       const make = (end: number) => measured({record:resultRecord,body:bytes.subarray(start,end).toString('utf8'),redacted:projectedBody.redacted,historical:record.status!=='verified',truncated:end<bytes.length,unresolved_conflicts:conflicts.map((ref)=>ref.id),conflicts,...this.#metadata(database),next_cursor:end<bytes.length?continuation(key,end):null,body_offset:start});
       const cap = limits(this.paths.config,options);
       let low = start, high = Math.min(bytes.length,start+byteLimit);
+      // Finishing removes continuation metadata, so this endpoint can fit even
+      // when smaller partial pages do not. Test it before the monotonic search.
+      if (high===bytes.length && fits(make(high),cap)) return make(high);
       while (low<high) { const middle = Math.ceil((low+high)/2); if (fits(make(utf8End(bytes,middle)),cap)) low=middle; else high=middle-1; }
       const end = utf8End(bytes,low);
       const result = make(end);
