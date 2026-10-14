@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtemp, mkdir, writeFile, rm, readFile, readdir } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, rm, readFile, readdir, symlink } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { beforeEach, afterEach, expect, it } from 'vitest';
@@ -52,4 +52,25 @@ it('enforces allowlist, missing-map errors, pagination, invalid cursors and byte
   await expect(getRepositoryMap(paths, { repo_id: 'sample-app', cursor: first.next_cursor })).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
   await buildRepositoryMap(paths, 'sample-app'); await expect(getRepositoryMap(paths, { repo_id: 'sample-app', section: 'files', limit: 1, cursor: first.next_cursor })).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
   paths.config.budgets.maxBytes = 100; await expect(getRepositoryMap(paths, { repo_id: 'sample-app' })).rejects.toMatchObject({ code: 'CONTEXT_BUDGET_EXCEEDED' });
+});
+
+it.each([
+  ['path', '../escape.ts'], ['path', '/absolute.ts'], ['path', 'C:/private.ts'],
+  ['path', 'credentials.json'], ['evidence', '.env'], ['evidence', 'vendor/private.ts']
+])('rejects unsafe cached %s path %s before serialization', async (field, unsafePath) => {
+  await file('safe.ts', 'export const fixture = 1;'); commit(); await buildRepositoryMap(paths, 'sample-app');
+  const directory = path.join(paths.runtimeRoot, 'repository-maps'); const filename = path.join(directory, (await readdir(directory))[0]!);
+  const cached = JSON.parse(await readFile(filename, 'utf8'));
+  if (field === 'path') cached.items[0].path = unsafePath; else cached.items[0].evidence.path = unsafePath;
+  await writeFile(filename, JSON.stringify(cached));
+  await expect(getRepositoryMap(paths, { repo_id: 'sample-app', section: 'files' })).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+});
+
+it('rejects a linked map directory before writing into a source checkout', async () => {
+  await file('safe.ts', 'export const fixture = 1;'); commit();
+  await symlink(source, path.join(paths.runtimeRoot, 'repository-maps'), process.platform === 'win32' ? 'junction' : 'dir');
+  const before = await readdir(source);
+  await expect(buildRepositoryMap(paths, 'sample-app')).rejects.toMatchObject({ code: 'FORBIDDEN' });
+  expect(await readdir(source)).toEqual(before);
+  expect(git('status', '--porcelain')).toBe('');
 });
