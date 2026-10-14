@@ -5,6 +5,10 @@ import os from 'node:os';
 import { beforeEach, afterEach, expect, it, vi } from 'vitest';
 import { KnowledgeApplication } from '../../src/application/service.js';
 import { resolvePaths, type ResolvedPaths } from '../../src/core/config.js';
+import { createHash } from 'node:crypto';
+import { buildActiveGeneration } from '../../src/indexing/build-index.js';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+const receiptFile = () => path.join(paths.runtimeRoot,'onboarding',createHash('sha256').update('sample-app').digest('hex')+'.json');
 let root: string, source: string, paths: ResolvedPaths, application: KnowledgeApplication;
 function git(...args: string[]) { return execFileSync('git', ['-C', source, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim(); }
 function commit() { git('add', '.'); git('-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '-m', 'Synthetic onboarding'); }
@@ -71,4 +75,43 @@ it('uninstall removes owned registration/artifacts while preserving unrelated se
   expect(paths.config.repositories).toEqual([]);
   expect(paths.config.budgets.maxTokens).toBe(2000);
   expect(git('status','--porcelain')).toBe('');
+});
+it('uninstall reloads changed unrelated durable settings instead of overwriting them', async () => {
+  await application.setup(request({verify_service:false}));
+  const config = JSON.parse(await readFile(paths.configPath,'utf8')); config.budgets.maxTokens = 3333;
+  await writeFile(paths.configPath,JSON.stringify(config));
+  await (application as any).uninstall({contract_version:1,repo_id:'sample-app'});
+  expect(JSON.parse(await readFile(paths.configPath,'utf8')).budgets.maxTokens).toBe(3333);
+});
+it('externally changed registration is not silently adopted as owned on rerun', async () => {
+  await application.setup(request({verify_service:false}));
+  const config = JSON.parse(await readFile(paths.configPath,'utf8')); config.repositories[0].name = 'Externally managed';
+  await writeFile(paths.configPath,JSON.stringify(config));
+  await expect(application.setup(request({verify_service:false}))).rejects.toMatchObject({detail:{code:'CONFLICT'}});
+});
+it('a newer active generation invalidates service-verification steps and updates provenance', async () => {
+  const first = await application.setup(request());
+  const built = await buildActiveGeneration(paths.knowledgeRoot,paths.runtimeRoot);
+  const second = await application.setup(request());
+  expect(second.index_generation).toBe(built.generation);
+  expect((second as any).steps.find((step:any) => step.name === 'scoped_read').attempts).toBe((first as any).steps.find((step:any) => step.name === 'scoped_read').attempts+1);
+});
+it('malformed receipts return safe conflict errors without echoing their text', async () => {
+  await application.setup(request({verify_service:false})); await writeFile(receiptFile(),'private credential corrupted receipt');
+  await expect(application.setup(request({verify_service:false}))).rejects.toMatchObject({detail:{code:'CONFLICT'}});
+});
+it('externally changed launch previews are preserved when settings change', async () => {
+  await application.setup(request({verify_service:false})); const launch = receiptFile().replace('.json','.launch.json');
+  await writeFile(launch,'external client settings');
+  await expect(application.setup(request({verify_service:false,client:'cursor'}))).rejects.toMatchObject({detail:{code:'CONFLICT'}});
+  expect(await readFile(launch,'utf8')).toBe('external client settings');
+});
+it('failed MCP verification persists sanitized diagnostics and retries without recreating registration', async () => {
+  vi.spyOn(Client.prototype,'listTools').mockRejectedValueOnce(new Error('private credential '+root));
+  const failed = await application.setup(request());
+  expect(failed.state).toBe('failed');
+  expect(JSON.stringify(failed.steps)).not.toMatch(/private credential|onboarding space/);
+  const recovered = await application.setup(request());
+  expect(recovered.state).toBe('service-verified');
+  expect(recovered.steps?.find((step) => step.name === 'registration')?.attempts).toBe(1);
 });
