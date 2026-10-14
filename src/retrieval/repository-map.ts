@@ -115,8 +115,16 @@ export async function getRepositoryMap(paths: ResolvedPaths, request: unknown) {
   const repo = repository(paths, input.repo_id);
   await assertMapDirectory(paths, false);
   let map: z.infer<typeof repositoryMapSchema>;
-  try { map = repositoryMapSchema.parse(JSON.parse(await readFile(location(paths, repo), 'utf8'))); }
-  catch (error) { throw new DomainError((error as NodeJS.ErrnoException).code === 'ENOENT' ? 'NOT_FOUND' : 'VALIDATION_ERROR', 'Map missing or invalid; run knowledge repos map build --repo <id>'); }
+  try {
+    const filename = location(paths, repo);
+    const status = await lstat(filename);
+    if (!status.isFile() || status.isSymbolicLink()) throw new DomainError('FORBIDDEN', 'Map cache must be a regular file');
+    map = repositoryMapSchema.parse(JSON.parse(await readFile(filename, 'utf8')));
+  }
+  catch (error) {
+    if (error instanceof DomainError) throw error;
+    throw new DomainError((error as NodeJS.ErrnoException).code === 'ENOENT' ? 'NOT_FOUND' : 'VALIDATION_ERROR', 'Map missing or invalid; run knowledge repos map build --repo <id>');
+  }
   if (map.repo_id !== repo.id || map.checkout_identity !== hash(repo.path)) throw new DomainError('CONFLICT', 'Registered checkout changed; rebuild the map');
   let head: string | null = null;
   let sourceAvailable = false;
