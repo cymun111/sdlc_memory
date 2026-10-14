@@ -15,6 +15,7 @@ import { buildRepositoryMap, getRepositoryMap } from './retrieval/repository-map
 import { serveStdio } from './mcp/server.js';
 import { optionalProvenance } from './indexing/provenance.js';
 import { inspectConflictReport, resolveConflictReport } from './capture/conflicts.js';
+import { KnowledgeApplication } from './application/service.js';
 
 function flag(args: string[], name: string): string | undefined {
   const index = args.indexOf(name);
@@ -47,7 +48,7 @@ async function main(): Promise<void> {
   switch (command) {
     case 'help':
     case '--help':
-      console.log('knowledge [--root <path>] [--config <path>] <init|register-repo|repos|validate|index|query|get|conflict|submit|candidates|candidate|onboard|doctor|session|serve|status>');
+      console.log('knowledge [--root <path>] [--config <path>] <setup|init|register-repo|repos|validate|index|query|get|conflict|submit|candidates|candidate|onboard|doctor|session|serve|status>');
       break;
     case 'repos': {
       if (args[0] === 'map') {
@@ -67,6 +68,17 @@ async function main(): Promise<void> {
       const limit = flag(args, '--limit');
       const cursor = flag(args, '--cursor');
       console.log(JSON.stringify(await listRepositories(paths, { ...(query !== undefined ? { query } : {}), ...(limit !== undefined ? { limit: Number(limit) } : {}), ...(cursor !== undefined ? { cursor } : {}) }), null, 2));
+      break;
+    }
+    case 'setup': {
+      const application = new KnowledgeApplication(paths);
+      let result;
+      if (args[0] === 'uninstall') result = await application.uninstall({contract_version:1,repo_id:requireFlag(args,'--repo')});
+      else if (args[0] === 'status') result = await application.readiness({contract_version:1,repo_id:requireFlag(args,'--repo')});
+      else if (args[0] === 'plan' || args[0] === 'apply') result = await application.setup({contract_version:1,mode:args[0],transport:'stdio',repository:{id:requireFlag(args,'--id'),path:requireFlag(args,'--path'),owner:requireFlag(args,'--owner'),team:requireFlag(args,'--team')},verify_service:!args.includes('--skip-service-verification'),client:flag(args,'--client')??'manual'});
+      else throw new Error('Usage: knowledge setup <plan|apply|status|uninstall>');
+      console.log(JSON.stringify(result,null,2));
+      if ('state' in result && result.state === 'failed') process.exitCode = 1;
       break;
     }
     case 'init':

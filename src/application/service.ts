@@ -8,6 +8,7 @@ import { KnowledgeService } from '../retrieval/service.js';
 import { parseKnowledgeMarkdown } from '../validation/record.js';
 import * as contracts from './contracts.js';
 import { provenance } from '../indexing/provenance.js';
+import { setupRepository, uninstallRepository, inspectOnboarding } from '../onboarding/service.js';
 
 /** Trusted local consumer boundary. Caller payloads cannot choose their principal or roots. */
 export class KnowledgeApplication {
@@ -37,15 +38,9 @@ export class KnowledgeApplication {
   }
 
   async setup(request: unknown) {
-    const input = contracts.parseRequest(contracts.setupRequest, request);
-    if (input.mode === 'apply') throw new contracts.IntegrationContractError('CAPABILITY_UNAVAILABLE', 'Setup apply is not implemented; use plan.');
-    if (!path.isAbsolute(input.repository.path)) throw new contracts.IntegrationContractError('VALIDATION_ERROR', 'Repository path must be absolute on the service host.');
-    const existing = this.paths.config.repositories.find((repo) => repo.id === input.repository.id || repo.aliases.includes(input.repository.id));
-    if (existing && (existing.id !== input.repository.id || path.resolve(existing.path) !== path.resolve(input.repository.path) || existing.owner !== input.repository.owner || existing.team !== input.repository.team)) {
-      throw new contracts.IntegrationContractError('CONFLICT', 'Setup conflicts with existing repository configuration.');
-    }
-    return contracts.setupOutput.parse({ contract_version: 1, state: 'planned', repo_id: input.repository.id, transport: 'stdio', writes: ['local-registration', 'repository-map', 'client-configuration'], external_edits_authorized: false });
+    return this.checked(contracts.setupOutput,() => setupRepository(this.paths,request));
   }
+  async uninstall(request: unknown) { return this.checked(contracts.setupOutput,() => uninstallRepository(this.paths,request)); }
 
   async readiness(request: unknown) {
     const input = contracts.parseRequest(contracts.readinessRequest, request);
@@ -57,7 +52,7 @@ export class KnowledgeApplication {
       try { manifest = await readFile(path.join(this.paths.runtimeRoot, 'index-active.json'), 'utf8'); }
       catch (error) {
         if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw new contracts.IntegrationContractError('INDEX_UNAVAILABLE', 'Cannot read the active index.', true);
-        return { contract_version: 1, repo_id, state: 'registered', index_generation: null, knowledge_snapshot: null, checkout_drift: null, context_delivery_verified: false, scope_mode: 'local-config-allowlist' };
+        return { contract_version: 1, repo_id, state: 'registered', index_generation: null, knowledge_snapshot: null, checkout_drift: null, context_delivery_verified: false, scope_mode: 'local-config-allowlist', onboarding: await inspectOnboarding(this.paths,repo_id) };
       }
       let database: DatabaseSync | undefined;
       try {
@@ -71,7 +66,7 @@ export class KnowledgeApplication {
         metadata = provenance(database, this.paths.knowledgeRoot);
       } catch (error) { if (error instanceof DomainError) throw error; throw new contracts.IntegrationContractError('INDEX_UNAVAILABLE', 'Cannot read the active index.', true); }
       finally { database?.close(); }
-      return { contract_version: 1, repo_id, state: 'index-available', index_generation: generation, knowledge_snapshot: metadata!.knowledge_snapshot, checkout_drift: metadata!.checkout_drift, context_delivery_verified: false, scope_mode: 'local-config-allowlist' };
+      return { contract_version: 1, repo_id, state: 'index-available', index_generation: generation, knowledge_snapshot: metadata!.knowledge_snapshot, checkout_drift: metadata!.checkout_drift, context_delivery_verified: false, scope_mode: 'local-config-allowlist', onboarding: await inspectOnboarding(this.paths,repo_id) };
     });
   }
 

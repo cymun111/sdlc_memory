@@ -10,6 +10,7 @@
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run tests",
+    "coverage:aef-008": "vitest run tests/integration/onboarding.test.ts --coverage --coverage.include=src/onboarding/** --coverage.reportsDirectory=.runtime/coverage-aef-008 --coverage.thresholds.statements=80 --coverage.thresholds.branches=80 --coverage.thresholds.functions=80 --coverage.thresholds.lines=80",
     "evaluate:retrieval": "tsx scripts/evaluate-retrieval.ts",
     "coverage:aef-005": "vitest run tests/retrieval --coverage --coverage.include=scripts/retrieval-evaluation.ts --coverage.reportsDirectory=.runtime/coverage-aef-005 --coverage.thresholds.statements=80 --coverage.thresholds.branches=80 --coverage.thresholds.functions=80 --coverage.thresholds.lines=80",
     "coverage:aef-002": "vitest run tests --coverage --coverage.include=src/indexing/** --coverage.include=src/validation/graph.ts --coverage.reportsDirectory=.runtime/coverage-aef-002 --coverage.thresholds.statements=80 --coverage.thresholds.branches=80 --coverage.thresholds.functions=80 --coverage.thresholds.lines=80",

@@ -32,7 +32,7 @@ IDs are renumbered by priority at the user's explicit request. The mapping below
 | AEF-005 | Multi-repository retrieval evaluation | P1 | Done (baseline; quality gap visible) | AEF-002 through AEF-004 |
 | AEF-006 | Repository discovery through MCP | P1 | Done | Existing local configuration |
 | AEF-007 | Evidence-backed repository maps | P1 | Done | AEF-006 |
-| AEF-008 | Repeatable onboarding and readiness receipts | P1 | Planned | AEF-001 through AEF-004, AEF-006, AEF-007 |
+| AEF-008 | Repeatable onboarding and readiness receipts | P1 | Done (local manual stdio) | AEF-001 through AEF-004, AEF-006, AEF-007 |
 | AEF-009 | Deterministic task matching and ranking | P1 | Planned | AEF-005 |
 | AEF-010 | Progressive retrieval and complete budgets | P1 | Planned | AEF-003, AEF-004, AEF-005 |
 | AEF-011 | Safe candidate persistence and recovery | P1 | Planned | AEF-001, AEF-002 |
@@ -191,7 +191,7 @@ IDs are renumbered by priority at the user's explicit request. The mapping below
 
 ## AEF-008: Repeatable onboarding and readiness receipts
 
-**Priority / status:** P1 / Planned.
+**Priority / status:** P1 / Done for local manual stdio setup; native adapters/edits and task consumption remain unverified.
 **Outcome:** Knowledge setup is a resumable final configuration operation.
 
 **Acceptance criteria:**
@@ -204,6 +204,8 @@ IDs are renumbered by priority at the user's explicit request. The mapping below
 - Test Windows/spaced paths, wrong roots, dirty checkouts, reruns, changed settings, partial failures, and missing clients.
 
 **Implementation details:** Compose registration/discovery/map/doctor services behind the facade, independent of CLI parsing. Store fingerprints, step states, revisions/generations, and sanitized diagnostics in ignored runtime storage. Preview authorized client edits.
+
+**Completion scope:** [Facade-backed setup](../src/onboarding/service.ts) and CLI `setup plan|apply|status|uninstall` validate separate canonical Git/knowledge/runtime roots before mutation, persist six resumable step states, generate a manual launch preview, and verify nine-tool discovery/scoped reads with actual stdio SDK clients. Readiness exposes the durable receipt and later drift; uninstall preserves unrelated/pre-existing settings and rejects linked deletion paths. [Operations/limits](repeatable-onboarding.md) and [test-first evidence](aef-008-tdd.md) document 27 synthetic integration/CLI/SDK cases and executed RED/GREEN checkpoints. Manual descriptor completion is distinct from service verification; `context_delivery_verified` remains false. Selected native adapters report degraded/unavailable and edit no external files. AEF-014 still owns receiving-system integration, and AEF-012 owns actual task delivery.
 
 **Integration contribution:** Main operation called after SDLC Command's other setup steps.
 
@@ -432,5 +434,6 @@ Historical evidence is preserved from the previous tracker and establishes local
 | AEF-005 | New | 2026-10-13 | [Evaluator](../scripts/retrieval-evaluation.ts), [versioned tasks](../tests/retrieval/fixtures/v1.json), [per-case measurements](evaluations/aef-005-v1-results.json) | [TDD checkpoints](aef-005-tdd.md); 137 tests, build/typecheck/fixtures/SDK stdio passed; scoped evaluator coverage exceeds 80% in every category | 85.29% relevant coverage remains below target; 100% policy visibility includes blockers; fictional corpus and SDK in-memory transport, no production/native-agent/SDLC Command readiness claim |
 | AEF-006 | AEF-001 | 2026-10-01 | [Discovery service](../src/retrieval/repositories.ts), MCP/CLI | [Discovery tests](../tests/integration/repositories.test.ts), [SDK smoke](../scripts/smoke-mcp.ts); prior tracker records build, typecheck, 30 tests, fixtures, and smoke passing | Local allowlist; live freshness unchecked; SDLC Command integration unverified |
 | AEF-007 | AEF-002 | 2026-10-13 | [Map service](../src/retrieval/repository-map.ts), [schema](../schemas/repository-map.schema.json), filesystem guards, MCP/CLI | [Map tests](../tests/integration/repository-map.test.ts), [TDD checkpoints](aef-007-tdd.md), [SDK smoke](../scripts/smoke-mcp.ts); 145 tests, build/typecheck/fixtures/stdio and scoped coverage passed | Git/npm only; explicit rebuild; no symbols/call graph; trusted runtime roots, no concurrent filesystem replacement protection; unmerged AEF-006 excluded from totals; integration unverified |
+| AEF-008 | New | 2026-10-13 | [Onboarding service](../src/onboarding/service.ts), [contracts](../src/onboarding/contracts.ts), facade/readiness and CLI | [TDD checkpoints](aef-008-tdd.md), [27 onboarding cases](../tests/integration/onboarding.test.ts); 172 tests, build/typecheck/fixtures/stdio and scoped coverage gates passed | Manual local stdio only; no native-client edits/context consumption/receiving-system wiring; includes pending AEF-007 and excludes separate unmerged AEF-006 |
 
 For each completion add implementation/test links, verification date/commands, measured results where applicable, client/transport versions, and limitations. External checks remain explicit blockers; documentation/configuration generation is not completion evidence.
