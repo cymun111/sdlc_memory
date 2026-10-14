@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { lstat, mkdir, readFile, realpath, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { z } from 'zod';
 import type { ResolvedPaths, RegisteredRepo } from '../core/config.js';
@@ -8,8 +8,8 @@ import { DomainError } from '../capture/candidate-store.js';
 import { optionalProvenance } from '../indexing/provenance.js';
 
 const sections = ['files', 'packages', 'entry_points', 'commands', 'tests', 'languages'] as const;
-const evidence = z.object({ path: z.string(), blob_hash: z.string().regex(/^[a-f0-9]{40,64}$/) });
-const item = z.object({ section: z.enum(sections), path: z.string(), label: z.string(), evidence });
+const evidence = z.object({ path: z.string().refine(allowed, 'Unsafe evidence path'), blob_hash: z.string().regex(/^[a-f0-9]{40,64}$/) });
+const item = z.object({ section: z.enum(sections), path: z.string(), label: z.string(), evidence }).refine((entry) => entry.section === 'commands' ? safeRelative(entry.path) : allowed(entry.path), 'Unsafe map path');
 export const repositoryMapSchema = z.object({
   schema_version: z.literal(1), extractor_version: z.literal('git-npm-1'), repo_id: z.string(), checkout_identity: z.string(),
   source_revision: z.string().regex(/^[a-f0-9]{40,64}$/), generated_at: z.string(),
@@ -19,8 +19,11 @@ export const mapReadInput = z.object({ repo_id: z.string().min(1), section: z.en
 const hash = (s: string) => createHash('sha256').update(s).digest('hex');
 const extensions: Record<string, string> = { '.ts': 'TypeScript', '.tsx': 'TypeScript', '.js': 'JavaScript', '.jsx': 'JavaScript', '.mjs': 'JavaScript', '.cjs': 'JavaScript', '.py': 'Python', '.go': 'Go', '.rs': 'Rust', '.java': 'Java', '.cs': 'C#', '.rb': 'Ruby', '.php': 'PHP', '.cpp': 'C++', '.c': 'C', '.swift': 'Swift', '.kt': 'Kotlin', '.sh': 'Shell' };
 const textExtensions = new Set([...Object.keys(extensions), '.json', '.md', '.yaml', '.yml', '.toml', '.html', '.css', '.sql', '.txt']);
+function safeRelative(file: string): boolean {
+  return file.length > 0 && file.length <= 4096 && !file.startsWith('/') && !/[\\:\u0000-\u001f\u007f]/u.test(file) && !file.split('/').includes('..') && path.posix.normalize(file) === file;
+}
 function allowed(file: string): boolean {
-  return !file.startsWith('/') && !file.includes('\\') && !file.split('/').some((part) => part === '..' || /^(node_modules|vendor|dist|build|coverage|\.git|\.runtime|\.next|target|__pycache__)$/i.test(part) || /(^\.env|credential|secret|token|password|\.pem$|\.key$|^id_rsa|^\.npmrc$)/i.test(part)) && (textExtensions.has(path.posix.extname(file)) || /(^|\/)(Dockerfile|Makefile)$/.test(file)) && !/(^|\/)(package-lock\.json|yarn\.lock|pnpm-lock\.yaml)$/.test(file);
+  return safeRelative(file) && !file.split('/').some((part) => /^(node_modules|vendor|dist|build|coverage|\.git|\.runtime|\.next|target|__pycache__)$/i.test(part) || /(^\.env|credential|secret|token|password|\.pem$|\.key$|^id_rsa|^\.npmrc$)/i.test(part)) && (textExtensions.has(path.posix.extname(file)) || /(^|\/)(Dockerfile|Makefile)$/.test(file)) && !/(^|\/)(package-lock\.json|yarn\.lock|pnpm-lock\.yaml)$/.test(file);
 }
 function git(repo: RegisteredRepo, args: string[]): string {
   try { return execFileSync('git', ['-C', repo.path, ...args], { encoding: 'utf8', timeout: 15000, maxBuffer: 8 * 1024 * 1024, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] }); }
@@ -32,6 +35,23 @@ function repository(paths: ResolvedPaths, id: string) {
   return repo;
 }
 function location(paths: ResolvedPaths, repo: RegisteredRepo) { return path.join(paths.runtimeRoot, 'repository-maps', hash(repo.id) + '.json'); }
+async function assertMapDirectory(paths: ResolvedPaths, create: boolean) {
+  const directory = path.join(paths.runtimeRoot, 'repository-maps');
+  let ancestor = directory;
+  while (true) {
+    try {
+      if (!(await lstat(ancestor)).isDirectory() || await realpath(ancestor) !== ancestor) throw new DomainError('FORBIDDEN', 'Map directory must not resolve through a link');
+      break;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT' || ancestor === paths.knowledgeRoot) throw new DomainError('FORBIDDEN', 'Map directory is unavailable or unsafe');
+      ancestor = path.dirname(ancestor);
+    }
+  }
+  if (create) {
+    await mkdir(directory, { recursive: true });
+    if (await realpath(directory) !== directory) throw new DomainError('FORBIDDEN', 'Map directory must not resolve through a link');
+  }
+}
 export async function buildRepositoryMap(paths: ResolvedPaths, repoId: string, revision = 'HEAD') {
   const repo = repository(paths, repoId);
   if (!/^[a-zA-Z0-9][a-zA-Z0-9._/~^+-]{0,199}$/.test(revision)) throw new DomainError('VALIDATION_ERROR', 'Invalid Git revision');
@@ -84,7 +104,7 @@ export async function buildRepositoryMap(paths: ResolvedPaths, repoId: string, r
   if (!manifests) warnings.push('No eligible npm manifest: package and entry-point extraction unavailable; generic Git map only');
   const map = repositoryMapSchema.parse({ schema_version: 1, extractor_version: 'git-npm-1', repo_id: repo.id, checkout_identity: hash(repo.path), source_revision: commit, generated_at: new Date().toISOString(), truncated: extractionLimited, warnings: [...new Set(warnings)].slice(0, 20), items });
   const destination = location(paths, repo);
-  await mkdir(path.dirname(destination), { recursive: true });
+  await assertMapDirectory(paths, true);
   const temporary = destination + '.' + randomUUID() + '.tmp';
   await writeFile(temporary, JSON.stringify(map), { flag: 'wx', mode: 0o600 });
   await rename(temporary, destination);
@@ -93,6 +113,7 @@ export async function buildRepositoryMap(paths: ResolvedPaths, repoId: string, r
 export async function getRepositoryMap(paths: ResolvedPaths, request: unknown) {
   const input = mapReadInput.parse(request);
   const repo = repository(paths, input.repo_id);
+  await assertMapDirectory(paths, false);
   let map: z.infer<typeof repositoryMapSchema>;
   try { map = repositoryMapSchema.parse(JSON.parse(await readFile(location(paths, repo), 'utf8'))); }
   catch (error) { throw new DomainError((error as NodeJS.ErrnoException).code === 'ENOENT' ? 'NOT_FOUND' : 'VALIDATION_ERROR', 'Map missing or invalid; run knowledge repos map build --repo <id>'); }
