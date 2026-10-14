@@ -31,8 +31,8 @@ async function safeDirectory(directory: string, create = false) {
   }
   if (create) { await mkdir(directory,{recursive:true}); if (await realpath(directory) !== directory) fail('FORBIDDEN','Onboarding storage must not resolve through a link.'); }
 }
-async function readRegular(filename: string): Promise<string|null> {
-  try { const status = await lstat(filename); if (!status.isFile() || status.isSymbolicLink() || status.size > 128*1024) fail('FORBIDDEN','Onboarding artifact is unsafe.'); return await readFile(filename,'utf8'); }
+async function readRegular(filename: string, maxBytes = 128*1024): Promise<string|null> {
+  try { const status = await lstat(filename); if (!status.isFile() || status.isSymbolicLink() || status.size > maxBytes) fail('FORBIDDEN','Onboarding artifact is unsafe.'); return await readFile(filename,'utf8'); }
   catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null; throw error; }
 }
 async function save(filename: string, value: unknown) {
@@ -113,7 +113,7 @@ export async function setupRepository(paths: ResolvedPaths, request: unknown) {
     if (hash(await receiptAt(artifact.receipt)) !== hash(previous) || (await readRegular(paths.configPath) && hash((await resolvePaths({root:paths.knowledgeRoot})).config) !== hash(paths.config))) fail('CONFLICT','Setup inputs changed while acquiring the lock; retry.');
     const receipt: OnboardingReceipt = previous && previous.state !== 'uninstalled' ? previous : {
       schema_version:1,receipt_id:randomUUID(),repo_id:registration.id,principal:paths.config.principal,fingerprint:'',state:'configured',created_at:now(),updated_at:now(),source_revision:null,index_generation:null,
-      registration_before:existing??null,registration_snapshot:registration,owned_registration:!existing,owned_map:!(await readRegular(artifact.map)),map_hash:null,launch_hash:null,
+      registration_before:existing??null,registration_snapshot:registration,owned_registration:!existing,owned_map:!(await readRegular(artifact.map,32*1024*1024)),map_hash:null,launch_hash:null,
       steps:stepNames.map((name) => ({name,state:'pending',fingerprint:'',attempts:0,verified_at:null,retryable:false,diagnostic:null})),source_dirty:validated.dirty,context_delivery_verified:false,description_status:'unavailable',client_preview:preview
     };
     if (!previous && await readRegular(artifact.launch)) fail('CONFLICT','Launch artifact is not owned by this setup.');
@@ -136,7 +136,7 @@ export async function setupRepository(paths: ResolvedPaths, request: unknown) {
     const map = await getRepositoryMap(paths,{repo_id:registration.id}).catch(() => null);
     const mapKey = hash([registration.id,validated.canonical,validated.revision]);
     if (!map || map.source_revision !== validated.revision) receipt.steps.find((value) => value.name === 'map')!.state = 'pending';
-    if (!await step('map',mapKey,async () => { await buildRepositoryMap(paths,registration.id,validated.revision); receipt.map_hash = bytesHash((await readRegular(artifact.map))!); receipt.source_revision = validated.revision; })) return publicResult(receipt);
+    if (!await step('map',mapKey,async () => { await buildRepositoryMap(paths,registration.id,validated.revision); receipt.map_hash = bytesHash((await readRegular(artifact.map,32*1024*1024))!); receipt.source_revision = validated.revision; })) return publicResult(receipt);
     let inputs;
     try { inputs = await captureBuildInputs(paths.knowledgeRoot); }
     catch { receipt.steps.find((value) => value.name === 'index')!.state = 'failed'; receipt.state = 'failed'; await persist(); return publicResult(receipt); }
@@ -173,10 +173,21 @@ export async function uninstallRepository(paths: ResolvedPaths, request: unknown
     const current = paths.config.repositories.find((repo) => repo.id === receipt.repo_id);
     if (receipt.owned_registration && current && hash(current) !== hash(receipt.registration_snapshot)) fail('CONFLICT','Registration changed externally; preserve settings for review.');
     for (const [filename,expected,owned] of [[artifact.launch,receipt.launch_hash,true],[artifact.map,receipt.map_hash,receipt.owned_map]] as const) {
-      if (!owned || !expected) continue; const body = await readRegular(filename); if (body && bytesHash(body) !== expected) fail('CONFLICT','Owned artifact changed externally; preserve it for review.');
+      if (!owned || !expected) continue; const body = await readRegular(filename,filename === artifact.map ? 32*1024*1024 : 128*1024); if (body && bytesHash(body) !== expected) fail('CONFLICT','Owned artifact changed externally; preserve it for review.');
     }
     if (receipt.owned_registration) { const config = {...paths.config,repositories:paths.config.repositories.filter((repo) => repo.id !== receipt.repo_id)}; await saveLocalConfig(paths,config); paths.config = config; }
     if (receipt.launch_hash) await rm(artifact.launch,{force:true}); if (receipt.owned_map && receipt.map_hash) await rm(artifact.map,{force:true});
     receipt.state = 'uninstalled'; receipt.updated_at = now(); await save(artifact.receipt,receipt); return publicResult(receipt);
   } finally { await rm(artifact.lock,{force:true}); }
+}
+export async function inspectOnboarding(paths: ResolvedPaths, id: string) {
+  const artifact = files(paths,id); await safeDirectory(artifact.directory);
+  const receipt = await receiptAt(artifact.receipt); if (!receipt) return null;
+  if (receipt.repo_id !== id || receipt.principal !== paths.config.principal) fail('FORBIDDEN','Onboarding receipt is outside the configured identity.');
+  const current = paths.config.repositories.find((repo) => repo.id === id);
+  if (current && hash(current) !== hash(receipt.registration_snapshot)) receipt.state = 'degraded';
+  const map = await getRepositoryMap(paths,{repo_id:id}).catch(() => null);
+  const index = await optionalProvenance(paths.knowledgeRoot,paths.runtimeRoot).catch(() => null);
+  if (receipt.state !== 'failed' && receipt.state !== 'uninstalled' && (!map?.freshness.source_available || map.freshness.dirty_worktree || map.freshness.head_changed || index?.index_generation !== receipt.index_generation || index.checkout_drift?.content_changed || index.checkout_drift?.head_changed)) receipt.state = 'degraded';
+  return publicResult(receipt);
 }
