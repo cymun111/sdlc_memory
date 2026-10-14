@@ -32,10 +32,10 @@ it('rejects incompatible versions and injected authority before any writes', asy
   await expect(readFile(path.join(paths.runtimeRoot, 'receipts.sqlite'))).rejects.toMatchObject({ code: 'ENOENT' });
 });
 
-it('plans setup without mutation, rejects apply and configuration conflicts', async () => {
-  expect(setupOutput.parse(await consumer.setup(plan())).state).toBe('planned');
-  await expect(consumer.setup({ ...plan(), mode: 'apply' })).rejects.toMatchObject({ detail: { code: 'CAPABILITY_UNAVAILABLE' } });
-  await expect(consumer.setup({ ...plan(), repository: { ...plan().repository, owner: 'other' } })).rejects.toMatchObject({ detail: { code: 'CONFLICT' } });
+it('rejects invalid source roots before plan or apply can mutate settings', async () => {
+  await expect(consumer.setup(plan())).rejects.toMatchObject({ detail: { code: 'VALIDATION_ERROR' } });
+  await expect(consumer.setup({ ...plan(), mode: 'apply' })).rejects.toMatchObject({ detail: { code: 'VALIDATION_ERROR' } });
+  await expect(consumer.setup({ ...plan(), repository: { ...plan().repository, owner: 'other' } })).rejects.toMatchObject({ detail: { code: 'VALIDATION_ERROR' } });
   await expect(consumer.setup({ ...plan(), transport: 'http' })).rejects.toMatchObject({ detail: { code: 'VALIDATION_ERROR' } });
   await expect(readFile(paths.configPath)).rejects.toMatchObject({ code: 'ENOENT' });
 });

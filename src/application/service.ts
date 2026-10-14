@@ -8,6 +8,7 @@ import { KnowledgeService } from '../retrieval/service.js';
 import { parseKnowledgeMarkdown } from '../validation/record.js';
 import * as contracts from './contracts.js';
 import { provenance } from '../indexing/provenance.js';
+import { setupRepository, uninstallRepository } from '../onboarding/service.js';
 
 /** Trusted local consumer boundary. Caller payloads cannot choose their principal or roots. */
 export class KnowledgeApplication {
@@ -37,15 +38,9 @@ export class KnowledgeApplication {
   }
 
   async setup(request: unknown) {
-    const input = contracts.parseRequest(contracts.setupRequest, request);
-    if (input.mode === 'apply') throw new contracts.IntegrationContractError('CAPABILITY_UNAVAILABLE', 'Setup apply is not implemented; use plan.');
-    if (!path.isAbsolute(input.repository.path)) throw new contracts.IntegrationContractError('VALIDATION_ERROR', 'Repository path must be absolute on the service host.');
-    const existing = this.paths.config.repositories.find((repo) => repo.id === input.repository.id || repo.aliases.includes(input.repository.id));
-    if (existing && (existing.id !== input.repository.id || path.resolve(existing.path) !== path.resolve(input.repository.path) || existing.owner !== input.repository.owner || existing.team !== input.repository.team)) {
-      throw new contracts.IntegrationContractError('CONFLICT', 'Setup conflicts with existing repository configuration.');
-    }
-    return contracts.setupOutput.parse({ contract_version: 1, state: 'planned', repo_id: input.repository.id, transport: 'stdio', writes: ['local-registration', 'repository-map', 'client-configuration'], external_edits_authorized: false });
+    return setupRepository(this.paths,request);
   }
+  async uninstall(request: unknown) { return uninstallRepository(this.paths,request); }
 
   async readiness(request: unknown) {
     const input = contracts.parseRequest(contracts.readinessRequest, request);
