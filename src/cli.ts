@@ -48,7 +48,7 @@ async function main(): Promise<void> {
   switch (command) {
     case 'help':
     case '--help':
-      console.log('knowledge [--root <path>] [--config <path>] <init|register-repo|repos|validate|index|query|get|conflict|submit|candidates|candidate|onboard|doctor|session|serve|status>');
+      console.log('knowledge [--root <path>] [--config <path>] <setup|init|register-repo|repos|validate|index|query|get|conflict|submit|candidates|candidate|onboard|doctor|session|serve|status>');
       break;
     case 'repos': {
       if (args[0] === 'map') {

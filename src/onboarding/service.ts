@@ -11,7 +11,8 @@ import { buildRepositoryMap, getRepositoryMap } from '../retrieval/repository-ma
 import { listRepositories } from '../retrieval/repositories.js';
 import { captureBuildInputs, optionalProvenance } from '../indexing/provenance.js';
 import { buildActiveGeneration } from '../indexing/build-index.js';
-import { setupRequest, setupOutput, uninstallRequest, parseRequest, IntegrationContractError } from '../application/contracts.js';
+import { setupRequest, setupOutput, uninstallRequest, parseRequest, IntegrationContractError, contextOutput } from '../application/contracts.js';
+import { scopeAllowed } from '../retrieval/visibility.js';
 import { onboardingReceipt, stepNames, type OnboardingReceipt } from './contracts.js';
 import type { z } from 'zod';
 const hash = (value: unknown) => createHash('sha256').update(JSON.stringify(value, (_key, item: unknown) => item && typeof item === 'object' && !Array.isArray(item) ? Object.fromEntries(Object.entries(item).sort(([a],[b]) => a.localeCompare(b))) : item)).digest('hex');
@@ -80,7 +81,9 @@ async function probe(paths: ResolvedPaths, repo: string, revision: string, disco
     } else {
       const result = await client.callTool({name:'get_task_context',arguments:{repo_id:repo,task:'onboarding readiness',source_revision:revision}},undefined,{timeout:10000});
       const envelope = result.structuredContent as {ok?:boolean;data?:{application_source?:{repo_id?:string};status?:string}}|undefined;
-      if (result.isError || !envelope?.ok || envelope.data?.application_source?.repo_id !== repo || envelope.data.status !== 'ok') throw new Error('Scoped context is blocked');
+      const parsed = contextOutput.safeParse(envelope?.data);
+      const target = paths.config.repositories.find((value) => value.id === repo);
+      if (result.isError || !envelope?.ok || !parsed.success || parsed.data.application_source?.repo_id !== repo || parsed.data.application_source.requested_revision !== revision || parsed.data.status !== 'ok' || parsed.data.results.some((record) => !scopeAllowed(record.scope,paths.config,target))) throw new Error('Scoped context is blocked or invalid');
     }
   } finally { await client.close(); await transport.close(); }
 }
