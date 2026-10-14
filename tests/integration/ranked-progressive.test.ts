@@ -9,6 +9,8 @@ import { KnowledgeService } from '../../src/retrieval/service.js';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createMcpServer } from '../../src/mcp/server.js';
+import { listRepositories } from '../../src/retrieval/repositories.js';
+import { KnowledgeApplication } from '../../src/application/service.js';
 let root: string, paths: ResolvedPaths, service: KnowledgeService;
 beforeEach(async () => {
   root = await mkdtemp(path.join(os.tmpdir(),'ranked-progressive-'));
@@ -90,4 +92,16 @@ it('AEF-010 related pages carry bounded relevant conflicts and unique edges', as
   const result=await service.related('alpha.a','alpha',[],2,12);
   expect((result as any).unresolved_conflicts).toHaveLength(1);
   expect(new Set(result.edges.map((edge)=>JSON.stringify(edge))).size).toBe(result.edges.length);
+});
+it('AEF-010 discovery honors the configured token cap including metadata', async () => {
+  paths.config.budgets.maxTokens=1;
+  await expect(listRepositories(paths)).rejects.toMatchObject({code:'CONTEXT_BUDGET_EXCEEDED'});
+});
+it('AEF-010 facade wrappers must also fit the caller token budget', async () => {
+  await record('alpha.a',{title:'Cache expiry',summary:'Cache expiry removes entries.'}); await index();
+  paths.config.budgets.maxTokens=8000; const raw=await task(); const budget=raw.estimated_tokens;
+  try {
+    const result=await new KnowledgeApplication(paths).retrieve({contract_version:1,repo_id:'alpha',task:'cache expiry',max_tokens:budget});
+    expect(Math.ceil(Buffer.byteLength(JSON.stringify({ok:true,data:result}))/3)).toBeLessThanOrEqual(budget);
+  } catch(error) { expect(error).toMatchObject({detail:{code:'CONTEXT_BUDGET_EXCEEDED'}}); }
 });
