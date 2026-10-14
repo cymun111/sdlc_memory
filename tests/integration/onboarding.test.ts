@@ -115,3 +115,42 @@ it('failed MCP verification persists sanitized diagnostics and retries without r
   expect(recovered.state).toBe('service-verified');
   expect(recovered.steps?.find((step) => step.name === 'registration')?.attempts).toBe(1);
 });
+it('changed owned owner/team settings invalidate only registration and service prerequisites', async () => {
+  const first = await application.setup(request({verify_service:false}));
+  const updated = await application.setup(request({verify_service:false,repository:{id:'sample-app',path:source,owner:'new-owner',team:'new-team'}}));
+  expect(paths.config.repositories[0]).toMatchObject({owner:'new-owner',team:'new-team'});
+  expect(updated.steps?.find((step) => step.name === 'map')?.attempts).toBe(first.steps?.find((step) => step.name === 'map')?.attempts);
+});
+it('plan validates a Git root without creating runtime settings or receipts', async () => {
+  expect(await application.setup(request({mode:'plan'}))).toMatchObject({state:'planned',context_delivery_verified:false});
+  await expect(readFile(paths.configPath)).rejects.toMatchObject({code:'ENOENT'});
+  await expect(readFile(receiptFile())).rejects.toMatchObject({code:'ENOENT'});
+});
+it('setup leaves a retained lock intact and reports a conflict', async () => {
+  await mkdir(path.join(paths.runtimeRoot,'onboarding'),{recursive:true});
+  const lock = path.join(paths.runtimeRoot,'onboarding/setup.lock'); await writeFile(lock,'retained lock');
+  await expect(application.setup(request({verify_service:false}))).rejects.toMatchObject({detail:{code:'CONFLICT'}});
+  expect(await readFile(lock,'utf8')).toBe('retained lock');
+});
+it('uninstall preserves pre-existing registration and maps', async () => {
+  const { registerRepository } = await import('../../src/core/config.js');
+  const { buildRepositoryMap } = await import('../../src/retrieval/repository-map.js');
+  await registerRepository(paths,{id:'sample-app',repoPath:source,owner:'local-owner',team:'local'}); await buildRepositoryMap(paths,'sample-app');
+  await application.setup(request({verify_service:false}));
+  await application.uninstall({contract_version:1,repo_id:'sample-app'});
+  expect(paths.config.repositories[0]?.id).toBe('sample-app');
+});
+it('readiness exposes the durable setup receipt without claiming delivery', async () => {
+  const setup = await application.setup(request({verify_service:false}));
+  expect(await application.readiness({contract_version:1,repo_id:'sample-app'})).toMatchObject({onboarding:{receipt_id:setup.receipt_id,state:'configured',context_delivery_verified:false}});
+});
+it('onboards maps larger than the receipt-size limit', async () => {
+  await Promise.all(Array.from({length:500},(_,index) => writeFile(path.join(source,`synthetic-${index}.ts`),'export {};'))); commit();
+  const result = await application.setup(request({verify_service:false}));
+  expect(result.state).toBe('configured');
+});
+it('CLI setup apply uses the same facade and emits a durable configured receipt', async () => {
+  const entry = path.resolve('dist/cli.js');
+  const output = execFileSync(process.execPath,[entry,'--root',paths.knowledgeRoot,'setup','apply','--id','sample-app','--path',source,'--owner','local-owner','--team','local','--skip-service-verification'],{encoding:'utf8'});
+  expect(JSON.parse(output)).toMatchObject({state:'configured',context_delivery_verified:false});
+});
