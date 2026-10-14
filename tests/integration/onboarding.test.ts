@@ -183,3 +183,15 @@ it('readiness reports source drift as degraded without mutating the receipt', as
   expect(await application.readiness({contract_version:1,repo_id:'sample-app'})).toMatchObject({onboarding:{state:'degraded'}});
   expect(await readFile(receiptFile(),'utf8')).toBe(receipt);
 });
+it('uninstall rejects a linked map parent before deleting an owned-looking source file', async () => {
+  await application.setup(request({verify_service:false}));
+  const { readdir } = await import('node:fs/promises');
+  const directory = path.join(paths.runtimeRoot,'repository-maps'); const filename = (await readdir(directory))[0]!;
+  const body = await readFile(path.join(directory,filename));
+  await rm(directory,{recursive:true,force:true}); await writeFile(path.join(source,filename),body);
+  await symlink(source,directory,process.platform === 'win32' ? 'junction':'dir');
+  const config = await readFile(paths.configPath,'utf8');
+  await expect(application.uninstall({contract_version:1,repo_id:'sample-app'})).rejects.toMatchObject({detail:{code:'FORBIDDEN'}});
+  expect(await readFile(path.join(source,filename))).toEqual(body);
+  expect(await readFile(paths.configPath,'utf8')).toBe(config);
+});
