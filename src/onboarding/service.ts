@@ -14,7 +14,7 @@ import { buildActiveGeneration } from '../indexing/build-index.js';
 import { setupRequest, setupOutput, uninstallRequest, parseRequest, IntegrationContractError } from '../application/contracts.js';
 import { onboardingReceipt, stepNames, type OnboardingReceipt } from './contracts.js';
 import type { z } from 'zod';
-const hash = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
+const hash = (value: unknown) => createHash('sha256').update(JSON.stringify(value, (_key, item: unknown) => item && typeof item === 'object' && !Array.isArray(item) ? Object.fromEntries(Object.entries(item).sort(([a],[b]) => a.localeCompare(b))) : item)).digest('hex');
 const bytesHash = (value: string) => createHash('sha256').update(value).digest('hex');
 const now = () => new Date().toISOString();
 const fail = (code: 'VALIDATION_ERROR'|'CONFLICT'|'FORBIDDEN'|'NOT_FOUND', message: string): never => { throw new IntegrationContractError(code, message); };
@@ -42,7 +42,9 @@ async function save(filename: string, value: unknown) {
 }
 async function receiptAt(filename: string) {
   const body = await readRegular(filename); if (!body) return null;
-  const result = onboardingReceipt.safeParse(JSON.parse(body));
+  let parsed: unknown;
+  try { parsed = JSON.parse(body); } catch { return fail('CONFLICT','Onboarding receipt is invalid; preserve it for operator review.'); }
+  const result = onboardingReceipt.safeParse(parsed);
   if (!result.success) fail('CONFLICT','Onboarding receipt is invalid; preserve it for operator review.');
   return result.data;
 }
@@ -92,6 +94,14 @@ export async function setupRepository(paths: ResolvedPaths, request: unknown) {
   const existing = matches[0];
   if (matches.length > 1 || (existing && (existing.id !== input.repository.id || existing.path !== validated.canonical))) fail('CONFLICT','Repository identity/path conflicts with registration.');
   if (paths.config.repositories.some((repo) => repo.id !== input.repository.id && repo.path === validated.canonical)) fail('CONFLICT','Source checkout is already registered under another ID.');
+  if (previous?.owned_registration && previous.state !== 'uninstalled' && existing && hash(existing) !== hash(previous.registration_snapshot)) {
+    const pending = previous.steps.find((value) => value.name === 'registration');
+    if (pending?.state !== 'pending' || pending.fingerprint !== hash(existing)) fail('CONFLICT','Registration changed externally; preserve settings for review.');
+  }
+  if (previous?.launch_hash) {
+    const launch = await readRegular(artifact.launch);
+    if (launch && bytesHash(launch) !== previous.launch_hash) fail('CONFLICT','Launch artifact changed externally; preserve it for review.');
+  }
   if (existing && (existing.owner !== input.repository.owner || existing.team !== input.repository.team) && (!previous?.owned_registration || hash(existing) !== hash(previous.registration_snapshot))) fail('CONFLICT','Existing registration settings are not owned by this setup.');
   const registration = {id:input.repository.id,name:existing?.name??input.repository.id,path:validated.canonical,owner:input.repository.owner,team:input.repository.team,aliases:existing?.aliases??[]};
   const preview = {command:process.execPath,args:[entry,'--root',paths.knowledgeRoot,'--config',paths.configPath,'serve','--transport','stdio'],native_client_verified:false as const,external_edits_authorized:false as const};
@@ -100,6 +110,7 @@ export async function setupRepository(paths: ResolvedPaths, request: unknown) {
   try { await writeFile(artifact.lock,'onboarding\n',{flag:'wx',mode:0o600}); }
   catch { return fail('CONFLICT','Another onboarding operation or retained lock requires review.'); }
   try {
+    if (hash(await receiptAt(artifact.receipt)) !== hash(previous) || (await readRegular(paths.configPath) && hash((await resolvePaths({root:paths.knowledgeRoot})).config) !== hash(paths.config))) fail('CONFLICT','Setup inputs changed while acquiring the lock; retry.');
     const receipt: OnboardingReceipt = previous && previous.state !== 'uninstalled' ? previous : {
       schema_version:1,receipt_id:randomUUID(),repo_id:registration.id,principal:paths.config.principal,fingerprint:'',state:'configured',created_at:now(),updated_at:now(),source_revision:null,index_generation:null,
       registration_before:existing??null,registration_snapshot:registration,owned_registration:!existing,owned_map:!(await readRegular(artifact.map)),map_hash:null,launch_hash:null,
@@ -133,6 +144,9 @@ export async function setupRepository(paths: ResolvedPaths, request: unknown) {
     const metadata = await optionalProvenance(paths.knowledgeRoot,paths.runtimeRoot).catch(() => null);
     if (!metadata?.index_generation) receipt.steps.find((value) => value.name === 'index')!.state = 'pending';
     if (!await step('index',indexKey,async () => { const built = await buildActiveGeneration(paths.knowledgeRoot,paths.runtimeRoot); receipt.index_generation = built.generation; })) return publicResult(receipt);
+    const activeMetadata = await optionalProvenance(paths.knowledgeRoot,paths.runtimeRoot);
+    receipt.index_generation = activeMetadata.index_generation;
+    if (!await readRegular(artifact.launch)) receipt.steps.find((value) => value.name === 'client_configuration')!.state = 'pending';
     if (!await step('client_configuration',hash([preview,input.client]),async () => { await save(artifact.launch,preview); receipt.launch_hash = bytesHash((await readRegular(artifact.launch))!); },input.client !== 'manual')) return publicResult(receipt);
     const verificationKey = hash([receipt.index_generation,mapKey,hash(paths.config),input.client,hash(preview)]);
     if (input.verify_service) {
@@ -154,6 +168,8 @@ export async function uninstallRepository(paths: ResolvedPaths, request: unknown
   await safeDirectory(artifact.directory,true);
   try { await writeFile(artifact.lock,'uninstall\n',{flag:'wx',mode:0o600}); } catch { return fail('CONFLICT','Onboarding lock requires review.'); }
   try {
+    if (await readRegular(paths.configPath)) paths.config = (await resolvePaths({root:paths.knowledgeRoot})).config;
+    if (receipt.principal !== paths.config.principal) fail('FORBIDDEN','Onboarding principal changed; preserve settings for review.');
     const current = paths.config.repositories.find((repo) => repo.id === receipt.repo_id);
     if (receipt.owned_registration && current && hash(current) !== hash(receipt.registration_snapshot)) fail('CONFLICT','Registration changed externally; preserve settings for review.');
     for (const [filename,expected,owned] of [[artifact.launch,receipt.launch_hash,true],[artifact.map,receipt.map_hash,receipt.owned_map]] as const) {
