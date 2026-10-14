@@ -227,7 +227,7 @@ export class KnowledgeService {
         const item = accessible.get(node)!;
         return summary(item.stored, item.record, 'related-record', this.#freshness(item.record, access), this.paths.config, access.readableIds, conflicts.some((ref) => ref.record_ids.includes(node)));
       });
-      const make = () => measured({nodes,edges:edges.filter((edge)=>(edge.source===id || nodes.some((node)=>node.id===edge.source)) && (edge.target===id || nodes.some((node)=>node.id===edge.target))).slice(0,maximumVisited),visited_nodes:seen.size,...this.#metadata(database),next_cursor:start+nodes.length<ids.length?continuation(key,start+nodes.length):null,truncated:start+nodes.length<ids.length || seen.size>=maximumVisited,omitted_result_count:ids.length-start-nodes.length});
+      const make = () => { const relevant=conflicts.filter((ref)=>ref.record_ids.some((recordId)=>recordId===id || nodes.some((node)=>node.id===recordId))).slice(0,12); return measured({nodes,edges:edges.filter((edge)=>(edge.source===id || nodes.some((node)=>node.id===edge.source)) && (edge.target===id || nodes.some((node)=>node.id===edge.target))).slice(0,maximumVisited),visited_nodes:seen.size,conflicts:relevant,unresolved_conflicts:relevant.map((ref)=>ref.id),...this.#metadata(database),next_cursor:start+nodes.length<ids.length?continuation(key,start+nodes.length):null,truncated:start+nodes.length<ids.length || seen.size>=maximumVisited,omitted_result_count:ids.length-start-nodes.length}); };
       while (!fits(make(),limits(this.paths.config,options))) { if (nodes.length<=1) budgetError(); nodes.pop(); }
       return make();
     });
