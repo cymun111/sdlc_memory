@@ -1,4 +1,4 @@
-import { copyFile, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { stringify } from 'yaml';
@@ -126,4 +126,10 @@ it('AEF-010 returns a complete body when it fits but cursor overhead would not',
   paths.config.budgets.maxBytes=Buffer.byteLength(JSON.stringify({ok:true,data:full}));
   const result=await service.get('alpha.a','alpha');
   expect(result.body).toBe(full.body); expect(result.next_cursor).toBeNull();
+});
+it('AEF-009 ranks narrative consistently for CRLF records with long metadata', async () => {
+  await record('alpha.a',{tags:Array.from({length:500},(_,i)=>'tag'+i)},'cache expiry');
+  const file=path.join(root,'knowledge','alpha.a.md');
+  await writeFile(file,(await readFile(file,'utf8')).replaceAll('\n','\r\n')); await index();
+  expect((await task()).results.map((item)=>item.id)).toContain('alpha.a');
 });

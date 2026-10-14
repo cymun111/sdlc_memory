@@ -14,5 +14,6 @@ const report = await evaluateRetrieval(options.get('--fixture'));
 await mkdir(path.dirname(output), { recursive: true });
 await writeFile(output, JSON.stringify(report, null, 2) + '\n');
 console.log(JSON.stringify({ output, fixture_version: report.fixture_version, tasks: report.cases.length, safety: report.safety, targets: report.targets, totals: report.totals }, null, 2));
-// Quality targets are observations until AEF-009/010. Safety and contract failures are CI gates.
+// Per-case oracle completeness, safety and contract failures are CI gates.
+// The unchanged fixture now requires every expected relevant record.
 if (!report.safety.passed) process.exitCode = 1;

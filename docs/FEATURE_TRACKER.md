@@ -33,8 +33,8 @@ IDs are renumbered by priority at the user's explicit request. The mapping below
 | AEF-006 | Repository discovery through MCP | P1 | Done | Existing local configuration |
 | AEF-007 | Evidence-backed repository maps | P1 | Done | AEF-006 |
 | AEF-008 | Repeatable onboarding and readiness receipts | P1 | Done (local manual stdio) | AEF-001 through AEF-004, AEF-006, AEF-007 |
-| AEF-009 | Deterministic task matching and ranking | P1 | Planned | AEF-005 |
-| AEF-010 | Progressive retrieval and complete budgets | P1 | Planned | AEF-003, AEF-004, AEF-005 |
+| AEF-009 | Deterministic task matching and ranking | P1 | Done | AEF-005 |
+| AEF-010 | Progressive retrieval and complete budgets | P1 | Done | AEF-003, AEF-004, AEF-005 |
 | AEF-011 | Safe candidate persistence and recovery | P1 | Planned | AEF-001, AEF-002 |
 | AEF-012 | Verified task context and completion capture | P1 | Planned | AEF-008, AEF-010, AEF-011 |
 | AEF-013 | Candidate inspection through MCP | P1 | Planned | AEF-001, AEF-011 |
@@ -211,7 +211,8 @@ IDs are renumbered by priority at the user's explicit request. The mapping below
 
 ## AEF-009: Deterministic task matching and ranking
 
-**Priority / status:** P1 / Planned.
+**Priority / status:** P1 / Done.
+**Completion scope:** [Weighted lexical ranking](ranked-progressive-retrieval.md) separates task/topics/paths and scores projected tags and declared symbols. The unchanged 36-task oracle improves from 29/34 to 34/34 relevant pairs, with 54/54 policy references, zero detected leaks/mismatches and no per-case regressions. See [measurements](evaluations/aef-009-010-v1-results.json) and [TDD evidence](aef-009-010-tdd.md). Bounded explicit alternatives are not general semantic retrieval; SDLC Command integration remains AEF-014.
 **Outcome:** Natural-language tasks match useful records without all terms occurring.
 
 **Acceptance criteria:**
@@ -228,7 +229,8 @@ IDs are renumbered by priority at the user's explicit request. The mapping below
 
 ## AEF-010: Progressive retrieval and complete budgets
 
-**Priority / status:** P1 / Planned.
+**Priority / status:** P1 / Done.
+**Completion scope:** [Generation-bound continuations](ranked-progressive-retrieval.md) cover summary search, UTF-8 body reads and graph node/edge pages. Complete logical envelopes, discovery/maps and facade wrappers enforce byte/token caps; generation drift is explicitly rejected. Full-document evaluation follows every page and retains 34/34 relevant pairs. Error-envelope exceptions, traversal limits and unsupported historical generations are documented. See [TDD evidence](aef-009-010-tdd.md); actual client consumption and receiving-system wiring remain separate gates.
 **Outcome:** Summaries precede focused expansion within reliable limits.
 
 **Acceptance criteria:**
@@ -435,5 +437,7 @@ Historical evidence is preserved from the previous tracker and establishes local
 | AEF-006 | AEF-001 | 2026-10-01 | [Discovery service](../src/retrieval/repositories.ts), MCP/CLI | [Discovery tests](../tests/integration/repositories.test.ts), [SDK smoke](../scripts/smoke-mcp.ts); prior tracker records build, typecheck, 30 tests, fixtures, and smoke passing | Local allowlist; live freshness unchecked; SDLC Command integration unverified |
 | AEF-007 | AEF-002 | 2026-10-13 | [Map service](../src/retrieval/repository-map.ts), [schema](../schemas/repository-map.schema.json), filesystem guards, MCP/CLI | [Map tests](../tests/integration/repository-map.test.ts), [TDD checkpoints](aef-007-tdd.md), [SDK smoke](../scripts/smoke-mcp.ts); 145 tests, build/typecheck/fixtures/stdio and scoped coverage passed | Git/npm only; explicit rebuild; no symbols/call graph; trusted runtime roots, no concurrent filesystem replacement protection; unmerged AEF-006 excluded from totals; integration unverified |
 | AEF-008 | New | 2026-10-13 | [Onboarding service](../src/onboarding/service.ts), [contracts](../src/onboarding/contracts.ts), facade/readiness and CLI | [TDD checkpoints](aef-008-tdd.md), [27 onboarding cases](../tests/integration/onboarding.test.ts); 172 tests, build/typecheck/fixtures/stdio and scoped coverage gates passed | Manual local stdio only; no native-client edits/context consumption/receiving-system wiring; includes pending AEF-007 and excludes separate unmerged AEF-006 |
+| AEF-009 | AEF-003 | 2026-10-14 | [Ranking](../src/retrieval/ranking.ts), retrieval service | [TDD checkpoints](aef-009-010-tdd.md), [unchanged-oracle results](evaluations/aef-009-010-v1-results.json); 34/34 relevant, 54/54 policies, zero detected leaks/mismatches/regressions; build/typecheck/fixtures/SDK stdio and scoped coverage passed | Explicit bounded lexical alternatives; fictional corpus; no production relevance, native-agent or receiving-system verification |
+| AEF-010 | AEF-005 | 2026-10-14 | [Envelope/cursor helpers](../src/retrieval/budget.ts), service/MCP/facade, discovery/maps | [Progressive tests](../tests/integration/ranked-progressive.test.ts), [TDD checkpoints](aef-009-010-tdd.md); full document pages preserve 34/34 relevant pairs; 95.75% statements, 92.24% branches, 95.90% functions, 100% lines scoped coverage | Rejects generation drift; logical envelope excludes protocol framing; minimal errors can exceed tiny budgets; no retained-generation reads or actual SDLC Command wiring |
 
 For each completion add implementation/test links, verification date/commands, measured results where applicable, client/transport versions, and limitations. External checks remain explicit blockers; documentation/configuration generation is not completion evidence.
