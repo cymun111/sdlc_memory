@@ -6,6 +6,9 @@ import { afterEach, beforeEach, expect, it } from 'vitest';
 import { resolvePaths, type ResolvedPaths } from '../../src/core/config.js';
 import { buildActiveGeneration } from '../../src/indexing/build-index.js';
 import { KnowledgeService } from '../../src/retrieval/service.js';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
+import { createMcpServer } from '../../src/mcp/server.js';
 let root: string, paths: ResolvedPaths, service: KnowledgeService;
 beforeEach(async () => {
   root = await mkdtemp(path.join(os.tmpdir(),'ranked-progressive-'));
@@ -70,4 +73,21 @@ it('AEF-010 missing/changed generation invalidates continuation', async () => {
   await record('alpha.a',{},'Fictional long body. '.repeat(2000)); await index(); paths.config.budgets.maxBytes = 3000;
   const first = await get(); expect(first.next_cursor).toEqual(expect.any(String)); await index();
   await expect(get({cursor:first.next_cursor})).rejects.toMatchObject({code:'VALIDATION_ERROR'});
+});
+it('AEF-010 MCP forwards generation and continuation controls', async () => {
+  await record('alpha.a'); await index();
+  const server=createMcpServer(paths), client=new Client({name:'progressive-test',version:'1'});
+  const [a,b]=InMemoryTransport.createLinkedPair();
+  try {
+    await server.connect(a); await client.connect(b);
+    const result=await client.callTool({name:'get_knowledge',arguments:{id:'alpha.a',repo_id:'alpha',expected_generation:'wrong-generation'}});
+    expect(result.isError).toBe(true); expect(result.structuredContent).toMatchObject({ok:false,data:{error:{code:'CONFLICT'}}});
+  } finally { await client.close(); await server.close(); }
+});
+it('AEF-010 related pages carry bounded relevant conflicts and unique edges', async () => {
+  await record('alpha.a',{relationships:[{type:'related-to',target:'alpha.b'}]});
+  await record('alpha.b',{relationships:[{type:'contradicts',target:'alpha.c'}]}); await record('alpha.c'); await index();
+  const result=await service.related('alpha.a','alpha',[],2,12);
+  expect((result as any).unresolved_conflicts).toHaveLength(1);
+  expect(new Set(result.edges.map((edge)=>JSON.stringify(edge))).size).toBe(result.edges.length);
 });
