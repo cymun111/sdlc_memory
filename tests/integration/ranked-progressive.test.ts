@@ -105,3 +105,18 @@ it('AEF-010 facade wrappers must also fit the caller token budget', async () => 
     expect(Math.ceil(Buffer.byteLength(JSON.stringify({ok:true,data:result}))/3)).toBeLessThanOrEqual(budget);
   } catch(error) { expect(error).toMatchObject({detail:{code:'CONTEXT_BUDGET_EXCEEDED'}}); }
 });
+it('AEF-010 related pagination preserves edges between nodes on different pages', async () => {
+  await record('alpha.a',{relationships:[{type:'related-to',target:'alpha.b'}]});
+  await record('alpha.b',{relationships:[{type:'related-to',target:'alpha.c'}]}); await record('alpha.c'); await index(); paths.config.budgets.maxDepth=2;
+  let cursor: string|undefined; const edges: Array<{source:string;target:string}>=[]; let pages=0;
+  do { const result=await service.related('alpha.a','alpha',[],2,1,{...(cursor?{cursor}:{})}); edges.push(...result.edges); cursor=result.next_cursor??undefined; expect(++pages).toBeLessThan(20); } while(cursor);
+  expect(edges).toContainEqual({source:'alpha.b',target:'alpha.c',type:'related-to'});
+});
+it.each([NaN,-1,1.5])('AEF-010 validates direct result limits: %s', async (limit) => {
+  await record('alpha.a'); await index();
+  await expect(service.search('Synthetic','alpha',limit)).rejects.toMatchObject({code:'VALIDATION_ERROR'});
+});
+it('AEF-010 context and body controls reject nonfinite values before querying', async () => {
+  await record('alpha.a'); await index();
+  await expect(task({max_results:NaN})).rejects.toMatchObject({code:'VALIDATION_ERROR'});
+});
