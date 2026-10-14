@@ -1,4 +1,4 @@
-# Repository maps (AEF-002)
+# Repository maps (AEF-007)
 
 Repository maps are rebuildable local navigation artifacts, not approved knowledge records. They read a registered checkout's committed Git objects and write only `<knowledge-root>/.runtime/repository-maps/`. They never execute application scripts, modify source checkouts, or fetch remotes.
 
@@ -15,7 +15,7 @@ npm run knowledge -- repos map show --repo sample-app --section files --path-pre
 
 Build defaults to HEAD and resolves references to an exact commit. Each successful build atomically replaces the latest map for that repository, even when building a historical revision. A failed build preserves the previous map. The source repository must have at least one commit. Use `npm.cmd` in PowerShell where execution policy blocks `npm.ps1`.
 
-MCP `get_repository_map` accepts `repo_id`, optional `section`, `path_prefix`, `limit` (1–50, default 10), and `cursor`. It reads an existing map only. Use the CLI to build one first. Restart your MCP connection after installing this tool.
+MCP `get_repository_map` accepts `repo_id`, optional `section`, `path_prefix`, `limit` (1â€“50, default 10), and `cursor`. It reads an existing map only. Use the CLI to build one first. Restart your MCP connection after installing this tool.
 
 ```json
 {"repo_id":"sample-app","section":"entry_points","limit":10}
@@ -39,9 +39,13 @@ Limits: 5,000 eligible files, 100 manifests, 64 KiB per manifest, 100 script nam
 
 The Zod contract in `src/retrieval/repository-map.ts` validates written and loaded artifacts. `schemas/repository-map.schema.json` documents the serialized contract. Maps are ignored runtime data and can be deleted and rebuilt; they are not submitted, approved, or included in knowledge indexing.
 
+Cached item/evidence paths must remain normalized repository-relative paths. Absolute paths, drive prefixes, backslashes, traversal, control characters, and excluded file/evidence paths are rejected before serialization with `VALIDATION_ERROR` and rebuild guidance. Command items may use the root package directory `.`; evidence still identifies an eligible manifest file. The JSON schema describes structural path constraints; runtime Zod validation additionally applies normalization and extraction exclusions.
+
+Builds check the nearest existing runtime-directory ancestor before creating map directories, then verify the created directory's canonical location. Reads also reject linked map directories and linked/nonregular cache files with `FORBIDDEN`. Existing directory links/junctions cannot redirect map writes into a source checkout. These checks do not establish protection against concurrent filesystem replacement or hard-link attacks; the local runtime root must remain under trusted operator control. Labels, warnings, and source paths remain untrusted reference data, not executable instructions or a general secret classification mechanism.
+
 ## Freshness, access, and pagination
 
-Freshness is reported separately: `source_available`, `head_changed`, `dirty_worktree`, and `head_revision`. Dirty checks consider relevant tracked edits and untracked files using the path filter; ignored files are excluded. These flags describe checkout state, not line-level claim verification. A new HEAD may be unrelated to mapped files, so `head_changed` is deliberately conservative. Source read failures are explicit even when a cached map remains readable. Rebuild explicitly after source changes; background refresh belongs to AEF-006.
+Freshness is reported separately: `source_available`, `head_changed`, `dirty_worktree`, and `head_revision`. Dirty checks consider relevant tracked edits and untracked files using the path filter; ignored files are excluded. These flags describe checkout state, not line-level claim verification. A new HEAD may be unrelated to mapped files, so `head_changed` is deliberately conservative. Source read failures are explicit even when a cached map remains readable. Rebuild explicitly after source changes; background refresh belongs to AEF-017.
 
 Only repositories registered in the trusted local configuration can be read. This is the same local allowlist as discovery, not shared-service authentication. Responses omit checkout filesystem paths. Moving registration to a different path requires rebuilding the map.
 
@@ -50,3 +54,5 @@ Cursors bind to the map, principal, section, path prefix, and limit. Keep those 
 ## Verification
 
 `tests/integration/repository-map.test.ts` covers packages, workspaces, non-Node files, malformed manifests, sensitive/binary/generated/oversized exclusions, evidence hashes, historical revisions, renames, unavailable source, allowlists, pagination, and response limits. `npm run smoke:mcp` builds a synthetic map via the CLI, discovers its repository through MCP, selects an entry-point file through `get_repository_map`, and checks CLI/MCP parity. No real project files are used as fixtures.
+
+[AEF-007 hardening evidence](aef-007-tdd.md) records executed RED/GREEN checkpoints for unsafe cached paths, a native Windows junction write guard, and controlled file-link metadata. Tool names and response fields remain unchanged so SDLC Command can reuse committed-source navigation during onboarding; this is not receiving-system integration.

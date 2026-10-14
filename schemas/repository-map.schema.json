@@ -50,7 +50,11 @@
             ]
           },
           "path": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096,
+            "pattern": "^(?!/)(?!.*[\\\\:\\u0000-\\u001f\\u007f])(?!\\.\\.(?:/|$))(?!.*\\/\\.\\.(?:/|$)).+$",
+            "description": "Repository-relative path. Runtime Zod validation also enforces normalized paths and the extractor file exclusion policy; commands use package directories."
           },
           "label": {
             "type": "string"
@@ -59,7 +63,11 @@
             "type": "object",
             "properties": {
               "path": {
-                "type": "string"
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096,
+                "pattern": "^(?!/)(?!.*[\\\\:\\u0000-\\u001f\\u007f])(?!\\.\\.(?:/|$))(?!.*\\/\\.\\.(?:/|$)).+$",
+                "description": "Repository-relative path. Runtime Zod validation also enforces normalized paths and the extractor file exclusion policy; commands use package directories."
               },
               "blob_hash": {
                 "type": "string",

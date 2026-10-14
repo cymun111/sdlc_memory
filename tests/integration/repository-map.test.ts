@@ -1,11 +1,20 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtemp, mkdir, writeFile, rm, readFile, readdir } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, rm, readFile, readdir, symlink } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
-import { beforeEach, afterEach, expect, it } from 'vitest';
+import { beforeEach, afterEach, expect, it, vi } from 'vitest';
 import { resolvePaths, registerRepository, type ResolvedPaths } from '../../src/core/config.js';
 import { buildRepositoryMap, getRepositoryMap, repositoryMapSchema } from '../../src/retrieval/repository-map.js';
 let root: string, source: string, paths: ResolvedPaths;
+const linkedFile = vi.hoisted(() => ({ path: '' }));
+vi.mock('node:fs/promises', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs/promises')>();
+  return { ...actual, lstat: async (...args: Parameters<typeof actual.lstat>) => {
+    const status = await actual.lstat(...args);
+    if (String(args[0]) === linkedFile.path) return Object.assign(status, { isSymbolicLink: () => true });
+    return status;
+  } };
+});
 function git(...args: string[]) { return execFileSync('git', ['-C', source, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim(); }
 async function file(name: string, content: string | Buffer) { const target = path.join(source, name); await mkdir(path.dirname(target), { recursive: true }); await writeFile(target, content); }
 function commit() { git('add', '.'); git('-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '-m', 'Synthetic fixture'); return git('rev-parse', 'HEAD'); }
@@ -13,7 +22,7 @@ beforeEach(async () => {
   root = await mkdtemp(path.join(os.tmpdir(), 'knowledge-map-')); source = path.join(root, 'source'); await mkdir(source); git('init');
   paths = await resolvePaths({ root }); await registerRepository(paths, { id: 'sample-app', repoPath: source, owner: 'local-owner', team: 'local' });
 });
-afterEach(async () => { await rm(root, { recursive: true, force: true }); });
+afterEach(async () => { linkedFile.path = ''; await rm(root, { recursive: true, force: true }); });
 it('extracts single-package commands, entry points, evidence, and extension-based languages', async () => {
   await file('package.json', JSON.stringify({ main: 'src/main.ts', scripts: { test: 'do-not-copy-secret-value', dev: 'node src/main.ts' } }));
   await file('src/main.ts', 'export const value = 1;'); await file('tests/main.test.ts', 'test fixture'); const revision = commit();
@@ -52,4 +61,33 @@ it('enforces allowlist, missing-map errors, pagination, invalid cursors and byte
   await expect(getRepositoryMap(paths, { repo_id: 'sample-app', cursor: first.next_cursor })).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
   await buildRepositoryMap(paths, 'sample-app'); await expect(getRepositoryMap(paths, { repo_id: 'sample-app', section: 'files', limit: 1, cursor: first.next_cursor })).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
   paths.config.budgets.maxBytes = 100; await expect(getRepositoryMap(paths, { repo_id: 'sample-app' })).rejects.toMatchObject({ code: 'CONTEXT_BUDGET_EXCEEDED' });
+});
+
+it.each([
+  ['path', '../escape.ts'], ['path', '/absolute.ts'], ['path', 'C:/private.ts'],
+  ['path', 'credentials.json'], ['evidence', '.env'], ['evidence', 'vendor/private.ts']
+])('rejects unsafe cached %s path %s before serialization', async (field, unsafePath) => {
+  await file('safe.ts', 'export const fixture = 1;'); commit(); await buildRepositoryMap(paths, 'sample-app');
+  const directory = path.join(paths.runtimeRoot, 'repository-maps'); const filename = path.join(directory, (await readdir(directory))[0]!);
+  const cached = JSON.parse(await readFile(filename, 'utf8'));
+  if (field === 'path') cached.items[0].path = unsafePath; else cached.items[0].evidence.path = unsafePath;
+  await writeFile(filename, JSON.stringify(cached));
+  await expect(getRepositoryMap(paths, { repo_id: 'sample-app', section: 'files' })).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+});
+
+it('rejects a linked map directory before writing into a source checkout', async () => {
+  await file('safe.ts', 'export const fixture = 1;'); commit();
+  await symlink(source, path.join(paths.runtimeRoot, 'repository-maps'), process.platform === 'win32' ? 'junction' : 'dir');
+  const before = await readdir(source);
+  await expect(buildRepositoryMap(paths, 'sample-app')).rejects.toMatchObject({ code: 'FORBIDDEN' });
+  expect(await readdir(source)).toEqual(before);
+  expect(git('status', '--porcelain')).toBe('');
+});
+
+it('rejects linked cache files instead of reading outside the map directory', async () => {
+  await file('safe.ts', 'export const fixture = 1;'); commit(); await buildRepositoryMap(paths, 'sample-app');
+  const directory = path.join(paths.runtimeRoot, 'repository-maps'); const filename = path.join(directory, (await readdir(directory))[0]!);
+  // File symlinks need Windows privileges; inject only the link metadata on a real valid cache file.
+  linkedFile.path = filename;
+  await expect(getRepositoryMap(paths, { repo_id: 'sample-app' })).rejects.toMatchObject({ code: 'FORBIDDEN' });
 });
