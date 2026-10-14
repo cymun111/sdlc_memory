@@ -1,3 +1,5 @@
-# Retrieval evaluation status
+# Retrieval evaluation
 
-The PRD requires at least 30 annotated tasks, 100% mandatory-policy recall, at least 90% relevant-record coverage, bounded response measurements, and a same-task full-document baseline. No quality or performance result is claimed by this starter. Add a versioned, fictional fixture set and evaluator before reporting metrics.
+Run `npm run evaluate:retrieval` for the versioned 36-task fictional strict-term baseline through real service and MCP SDK paths. Complete raw envelopes and measurements are written under ignored `.runtime/retrieval-evaluation/`. `npm run coverage:aef-005` checks the evaluator and scoring tests.
+
+See [method, results and limitations](../../docs/retrieval-evaluation.md), [fixture v1](fixtures/v1.json), and [TDD evidence](../../docs/aef-005-tdd.md). The baseline currently measures 100% mandatory-policy visibility and 85.29% relevant-record coverage; the 90% quality target remains unmet. Hardware-dependent latency is reported without a CI timing threshold.

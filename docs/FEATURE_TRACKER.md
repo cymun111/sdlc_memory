@@ -29,7 +29,7 @@ IDs are renumbered by priority at the user's explicit request. The mapping below
 | AEF-002 | Explicit failures and safe index rebuilds | P0 | Done | AEF-001 |
 | AEF-003 | Snapshot provenance and drift reporting | P0 | Done | AEF-001, AEF-002 |
 | AEF-004 | Conflict visibility, policies, and response isolation | P0 | Done | AEF-001, AEF-003 |
-| AEF-005 | Multi-repository retrieval evaluation | P1 | Planned | AEF-002 through AEF-004 |
+| AEF-005 | Multi-repository retrieval evaluation | P1 | Done (baseline; quality gap visible) | AEF-002 through AEF-004 |
 | AEF-006 | Repository discovery through MCP | P1 | Done | Existing local configuration |
 | AEF-007 | Evidence-backed repository maps | P1 | Done | AEF-006 |
 | AEF-008 | Repeatable onboarding and readiness receipts | P1 | Planned | AEF-001 through AEF-004, AEF-006, AEF-007 |
@@ -138,7 +138,7 @@ IDs are renumbered by priority at the user's explicit request. The mapping below
 
 ## AEF-005: Multi-repository retrieval evaluation
 
-**Priority / status:** P1 / Planned.
+**Priority / status:** P1 / Done for the versioned local baseline; 90% relevant-record target unmet.
 **Outcome:** Retrieval quality and efficiency have reproducible evidence.
 
 **Acceptance criteria:**
@@ -150,6 +150,8 @@ IDs are renumbered by priority at the user's explicit request. The mapping below
 - Publish a reproducible command, fixture version, environment, raw results, and limitations; no invented performance claims.
 
 **Implementation details:** Replace placeholder-only evaluation under `tests/retrieval/` with versioned fixtures/evaluator. Separate deterministic CI gates from hardware-dependent timings; exercise real service/MCP paths.
+
+**Completion scope:** [36 annotated tasks](../tests/retrieval/fixtures/v1.json) exercise fictional unrelated repositories, curated dependencies, denied metadata, stale/disputed policies, conflicts, empty results and failures through real service/SDK paths. `npm run evaluate:retrieval` writes raw envelopes and per-case measurements. The [method/results](retrieval-evaluation.md) and [TDD evidence](aef-005-tdd.md) document the strict-term baseline and full-document comparison: 29/34 relevant pairs (85.29%, below target), 54/54 mandatory-policy references (100%, including explicit blockers), zero detected unauthorized exposure and zero interface mismatches. Deterministic baseline changes fail CI; latency has no hardware-dependent threshold. AEF-009/010 must close the four documented matching gaps before the missing quality target can be claimed. No production workload or SDLC Command integration is established.
 
 **Integration contribution:** Provides measurable onboarding/task-context acceptance gates.
 
@@ -425,6 +427,7 @@ Historical evidence is preserved from the previous tracker and establishes local
 | AEF-002 | New | 2026-10-13 | [Index builder](../src/indexing/build-index.ts), [reader](../src/indexing/database.ts), [graph validation](../src/validation/graph.ts), retrieval/facade | [TDD checkpoints and results](aef-002-tdd.md); 68 tests, build/typecheck/fixtures/SDK stdio passed; feature coverage gates passed | Local controlled failure recovery; best-effort status; hard-kill/power-loss and concurrent-writer recovery remain follow-ups |
 | AEF-003 | New | 2026-10-13 | [Provenance schemas/services](../src/indexing/provenance.ts), indexing, retrieval, facade/CLI/receipts | [TDD checkpoints](aef-003-tdd.md); 88 tests, build/typecheck/fixtures/SDK smoke passed; provenance and indexing/graph coverage gates passed | Legacy indexes require full rebuild; live drift is moment-in-time; no source locking or continuous freshness; no receiving-system wiring |
 | AEF-004 | New | 2026-10-13 | [Visibility projection](../src/retrieval/visibility.ts), [conflict review](../src/capture/conflicts.ts), retrieval/CLI/MCP contracts | [TDD checkpoints](aef-004-tdd.md); 125 tests, build/typecheck/fixtures/SDK stdio and targeted coverage gates passed | Local owner worktree review; declared approval shape only; known structural metadata projection; no shared ACL/protected publication/native-agent integration |
+| AEF-005 | New | 2026-10-13 | [Evaluator](../scripts/retrieval-evaluation.ts), [versioned tasks](../tests/retrieval/fixtures/v1.json), [per-case measurements](evaluations/aef-005-v1-results.json) | [TDD checkpoints](aef-005-tdd.md); 137 tests, build/typecheck/fixtures/SDK stdio passed; scoped evaluator coverage exceeds 80% in every category | 85.29% relevant coverage remains below target; 100% policy visibility includes blockers; fictional corpus and SDK in-memory transport, no production/native-agent/SDLC Command readiness claim |
 | AEF-006 | AEF-001 | 2026-10-01 | [Discovery service](../src/retrieval/repositories.ts), MCP/CLI | [Discovery tests](../tests/integration/repositories.test.ts), [SDK smoke](../scripts/smoke-mcp.ts); prior tracker records build, typecheck, 30 tests, fixtures, and smoke passing | Local allowlist; live freshness unchecked; SDLC Command integration unverified |
 | AEF-007 | AEF-002 | 2026-10-01 | [Map service](../src/retrieval/repository-map.ts), [schema](../schemas/repository-map.schema.json), MCP/CLI | [Map tests](../tests/integration/repository-map.test.ts), [SDK smoke](../scripts/smoke-mcp.ts); prior tracker records build, typecheck, 35 tests, fixtures, and smoke passing | Git/npm only; explicit rebuild; no symbols/call graph; integration unverified |
 
