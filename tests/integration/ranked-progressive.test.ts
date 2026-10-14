@@ -133,3 +133,9 @@ it('AEF-009 ranks narrative consistently for CRLF records with long metadata', a
   await writeFile(file,(await readFile(file,'utf8')).replaceAll('\n','\r\n')); await index();
   expect((await task()).results.map((item)=>item.id)).toContain('alpha.a');
 });
+it('AEF-010 rejects oversized evidence metadata rather than returning over-budget reads', async () => {
+  await record('alpha.a',{sources:Array.from({length:100},(_,i)=>({kind:'documentation',reference:'https://fictional.invalid/evidence/'+i+'x'.repeat(1000)}))}); await index();
+  paths.config.budgets.maxBytes=1500;
+  await expect(service.get('alpha.a','alpha')).rejects.toMatchObject({code:'CONTEXT_BUDGET_EXCEEDED'});
+  await expect(service.search('Synthetic','alpha')).rejects.toMatchObject({code:'CONTEXT_BUDGET_EXCEEDED'});
+});
