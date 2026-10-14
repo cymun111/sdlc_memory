@@ -8,6 +8,8 @@ import { resolvePaths, type ResolvedPaths } from '../../src/core/config.js';
 import { createHash } from 'node:crypto';
 import { buildActiveGeneration } from '../../src/indexing/build-index.js';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import * as provenanceStore from '../../src/indexing/provenance.js';
+import { symlink } from 'node:fs/promises';
 const receiptFile = () => path.join(paths.runtimeRoot,'onboarding',createHash('sha256').update('sample-app').digest('hex')+'.json');
 let root: string, source: string, paths: ResolvedPaths, application: KnowledgeApplication;
 function git(...args: string[]) { return execFileSync('git', ['-C', source, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim(); }
@@ -20,7 +22,7 @@ beforeEach(async () => {
   git('init'); await writeFile(path.join(source, 'main.ts'), 'export const fictional = 1;'); commit();
   paths = await resolvePaths({ root: knowledge }); application = new KnowledgeApplication(paths);
 });
-afterEach(async () => { vi.restoreAllMocks(); await rm(root, { recursive: true, force: true }); });
+afterEach(async () => { vi.restoreAllMocks(); vi.unstubAllEnvs(); await rm(root, { recursive: true, force: true }); });
 it('applies setup on spaced paths, verifies real stdio service, and never claims context consumption', async () => {
   const result = await application.setup(request());
   expect(result).toMatchObject({ state: 'service-verified', context_delivery_verified: false, repo_id: 'sample-app' });
@@ -153,4 +155,31 @@ it('CLI setup apply uses the same facade and emits a durable configured receipt'
   const entry = path.resolve('dist/cli.js');
   const output = execFileSync(process.execPath,[entry,'--root',paths.knowledgeRoot,'setup','apply','--id','sample-app','--path',source,'--owner','local-owner','--team','local','--skip-service-verification'],{encoding:'utf8'});
   expect(JSON.parse(output)).toMatchObject({state:'configured',context_delivery_verified:false});
+});
+it('durable config reload is pinned even when KNOWLEDGE_CONFIG points elsewhere', async () => {
+  await application.setup(request({verify_service:false}));
+  const durable = JSON.parse(await readFile(paths.configPath,'utf8')); durable.budgets.maxTokens = 3333;
+  await writeFile(paths.configPath,JSON.stringify(durable));
+  const external = path.join(root,'external-config.json'); const other = structuredClone(durable); other.budgets.maxTokens = 777;
+  await writeFile(external,JSON.stringify(other)); vi.stubEnv('KNOWLEDGE_CONFIG',external);
+  await application.uninstall({contract_version:1,repo_id:'sample-app'});
+  expect(JSON.parse(await readFile(paths.configPath,'utf8')).budgets.maxTokens).toBe(3333);
+  expect(JSON.parse(await readFile(external,'utf8')).budgets.maxTokens).toBe(777);
+});
+it('unavailable knowledge inputs persist retry guidance without private diagnostics', async () => {
+  vi.spyOn(provenanceStore,'captureBuildInputs').mockRejectedValueOnce(new Error('private credential '+root));
+  const result = await application.setup(request({verify_service:false}));
+  expect(result.steps?.find((step) => step.name === 'index')).toMatchObject({state:'failed',retryable:true,diagnostic:expect.any(String)});
+  expect(JSON.stringify(result.steps)).not.toMatch(/private credential|onboarding space/);
+});
+it('linked onboarding storage is rejected before writing to source', async () => {
+  await mkdir(paths.runtimeRoot,{recursive:true}); await symlink(source,path.join(paths.runtimeRoot,'onboarding'),process.platform === 'win32' ? 'junction':'dir');
+  await expect(application.setup(request({verify_service:false}))).rejects.toMatchObject({detail:{code:'FORBIDDEN'}});
+  expect(git('status','--porcelain')).toBe('');
+});
+it('readiness reports source drift as degraded without mutating the receipt', async () => {
+  await application.setup(request({verify_service:false})); const receipt = await readFile(receiptFile(),'utf8');
+  await writeFile(path.join(source,'main.ts'),'export const fictional = 4;');
+  expect(await application.readiness({contract_version:1,repo_id:'sample-app'})).toMatchObject({onboarding:{state:'degraded'}});
+  expect(await readFile(receiptFile(),'utf8')).toBe(receipt);
 });
