@@ -80,6 +80,10 @@ async function run(paths:ResolvedPaths,receipt:SessionReceipt,launcher?:string):
   if(source!==receipt.source_revision || hash(JSON.stringify(current))!==receipt.context_digest || current.status!=='ok'){receipt.state='blocked-context';save(paths,receipt);return receipt;}
   receipt.attempts++;receipt.delivery={consumed:false,acknowledgement_verified:false,acknowledged_at:null,client_turn_completed:false};save(paths,receipt);
   const command=launcher??'codex';
+  if(!launcher) {
+    const configured=path.join(paths.runtimeRoot,'session-adapters',adapterId,'adapter.json');
+    if(existsSync(configured))await configureSessionAdapter(paths,{action:'status'});
+  }
   const version=spawnSync(command,['--version'],{encoding:'utf8',windowsHide:true,timeout:10000,maxBuffer:4096});
   if(version.error || version.status!==0){receipt.state='blocked-client-unavailable';save(paths,receipt);return receipt;}
   receipt.adapter.client_version=String(version.stdout).trim().slice(0,200);save(paths,receipt);

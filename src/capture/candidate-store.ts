@@ -93,12 +93,13 @@ function recoverUpdates(database: DatabaseSync, paths: ResolvedPaths): void {
   for (const row of database.prepare('SELECT * FROM candidate_updates').all()) {
     const filename = safeExistingCandidate(paths, String(row.repo_id), String(row.candidate_id));
     if (filename !== row.candidate_path) throw new DomainError('CONFLICT', 'Pending update path changed');
-    const current = hashMarkdown(readFileSync(filename, 'utf8'));
+    const current = hashMarkdown(readCapture(filename, paths.knowledgeRoot));
     if (current !== row.expected_hash && current !== row.content_hash) throw new DomainError('CONFLICT', 'Pending update conflicts with an external candidate edit');
     if (current !== row.content_hash) {
       const temporary = `${filename}.${randomUUID()}.tmp`;
       try {
         writeFileSync(temporary, String(row.markdown), { flag: 'wx', mode: 0o600, flush: true });
+        if(hashMarkdown(readCapture(safeExistingCandidate(paths,String(row.repo_id),String(row.candidate_id)),paths.knowledgeRoot))!==row.expected_hash) throw new DomainError('CONFLICT','Candidate changed after replacement staging.');
         renameSync(temporary, filename);
       } finally { rmSync(temporary, { force: true }); }
     }
@@ -182,7 +183,7 @@ function writeCandidate(filename: string, markdown: string, expectedHash: string
   try { safePath(filename,path.dirname(filename)); linkSync(temporary, filename); }
   catch (error) {
     if (!existsSync(filename)) throw error;
-    const existingHash = createHash('sha256').update(readFileSync(filename)).digest('hex');
+    const existingHash = createHash('sha256').update(readCapture(filename,path.dirname(filename))).digest('hex');
     if (existingHash !== expectedHash) throw new DomainError('CONFLICT', 'Concurrent candidate creation had different content');
   } finally {rmSync(temporary,{force:true});}
 }

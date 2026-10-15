@@ -136,6 +136,7 @@ export async function rejectCandidate(paths: ResolvedPaths, input: { id: string;
   if (!input.reason.trim()) throw new DomainError('VALIDATION_ERROR', 'Rejection requires a reason');
   const candidate = await inspectCandidate(paths, input.id);
   if (input.expectedHash && input.expectedHash !== candidate.hash) throw new DomainError('CONFLICT', 'Candidate changed since inspection');
+  if(paths.config.repositories.find(repo=>repo.id===candidate.repo_id)?.owner!==paths.config.owner) throw new DomainError('FORBIDDEN','Only the registered owner may reject a candidate.');
   const archivePath = transitionCandidate(paths,{repoId:candidate.repo_id,id:candidate.id,expectedHash:candidate.hash,original:candidate.markdown,state:'rejected',reason:input.reason});
   return { id: candidate.id, state: 'rejected', archive_path: archivePath };
 }
