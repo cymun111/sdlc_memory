@@ -22,6 +22,19 @@ export interface CandidateReceipt {
 }
 
 function openLedger(paths: ResolvedPaths): DatabaseSync {
+  for(let attempt=0;attempt<4;attempt++) {
+    try{return openLedgerAttempt(paths);}catch(error){
+      const failure=error as {errcode?:number;code?:string;path?:string};
+      const busy=failure.code==='ERR_SQLITE_ERROR' && failure.errcode!==undefined && [5,6].includes(failure.errcode&255);
+      const vanishedSidecar=failure.code==='ENOENT' && /receipts\.sqlite-(wal|shm)$/.test(failure.path??'');
+      if(!busy && !vanishedSidecar)throw error;
+      if(attempt===3)throw new DomainError('CONFLICT','Capture storage is busy; retry the same request after active writers finish.');
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0,25*2**attempt);
+    }
+  }
+  throw new DomainError('CONFLICT','Capture storage is unavailable.');
+}
+function openLedgerAttempt(paths:ResolvedPaths):DatabaseSync {
   safeDirectory(paths.runtimeRoot, paths.runtimeRoot);
   for(const suffix of ['', '-wal', '-shm']) {
     const filename=path.join(paths.runtimeRoot,'receipts.sqlite'+suffix); safePath(filename,paths.runtimeRoot);
