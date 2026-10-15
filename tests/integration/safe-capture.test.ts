@@ -3,17 +3,26 @@ import { copyFile, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node
 import path from 'node:path';
 import os from 'node:os';
 import { stringify } from 'yaml';
-import { afterEach, beforeEach, expect, it } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { resolvePaths, type ResolvedPaths } from '../../src/core/config.js';
 import { submitCandidate, listCandidates, updateCandidate } from '../../src/capture/candidate-store.js';
-import { rejectCandidate } from '../../src/capture/review.js';
+import { rejectCandidate, approveCandidate } from '../../src/capture/review.js';
+const fault=vi.hoisted(()=>({destination:'',remove:'',archive:false}));
+vi.mock('node:fs',async(original)=>{
+  const actual=await original<typeof import('node:fs')>();
+  return {...actual,
+    linkSync:(...args:Parameters<typeof actual.linkSync>)=>{if(String(args[1])===fault.destination) throw new Error('Injected creation interruption'); return actual.linkSync(...args);},
+    renameSync:(...args:Parameters<typeof actual.renameSync>)=>{if(String(args[1])===fault.destination || fault.archive) throw new Error('Injected rename interruption'); return actual.renameSync(...args);},
+    rmSync:(...args:Parameters<typeof actual.rmSync>)=>{if(String(args[0])===fault.remove) throw new Error('Injected removal interruption'); return actual.rmSync(...args);}
+  };
+});
 let root:string, paths:ResolvedPaths;
 beforeEach(async()=>{
   root=await mkdtemp(path.join(os.tmpdir(),'safe-capture-')); await mkdir(path.join(root,'schemas'));
   await copyFile('schemas/knowledge.schema.json',path.join(root,'schemas/knowledge.schema.json'));
   paths=await resolvePaths({root}); paths.config.repositories=[{id:'alpha',name:'Alpha',owner:'local-owner',team:'local',aliases:[],path:root}];
 });
-afterEach(async()=>{await rm(root,{recursive:true,force:true});});
+afterEach(async()=>{fault.destination='';fault.remove='';fault.archive=false;await rm(root,{recursive:true,force:true});});
 function markdown(body='Fictional durable observation.') {return '---\n'+stringify({schema_version:1,id:'alpha.learning',title:'Fictional learning',summary:'Fictional summary',type:'practice',scope:{kind:'repo',repo_id:'alpha'},status:'candidate',owner:'local-owner',sources:[],relationships:[],created_at:'2020-01-01T00:00:00Z',updated_at:'2020-01-01T00:00:00Z'})+'---\n'+body;}
 const submit=(body=markdown())=>submitCandidate(paths,{repoId:'alpha',idempotencyKey:'task:1',markdown:body});
 it('AEF-011 caps UTF-8 bytes before any candidate or ledger write',async()=>{
@@ -47,4 +56,23 @@ it('AEF-011 retains rejection evidence in the versionable candidate tree',async(
   const history=JSON.parse(await readFile(path.join(path.dirname(result.archive_path),'decision.json'),'utf8'));
   expect(history).toMatchObject({state:'rejected',reason:'Fictional unsupported evidence',content_hash:receipt.content_hash});
   expect(await readFile(result.archive_path,'utf8')).toBe(markdown());
+});
+it('AEF-011 reopens and completes interrupted candidate creation without caller payload replay',async()=>{
+  fault.destination=path.join(root,'candidates','alpha','alpha.learning.md'); await expect(submit()).rejects.toThrow(/Injected/); fault.destination='';
+  expect((await listCandidates(paths,'alpha')).map(item=>item.id)).toEqual(['alpha.learning']);
+  expect((await submit()).duplicate).toBe(true);
+});
+it.each(['published','rejected'] as const)('AEF-011 reopens interrupted %s filesystem-ledger transitions',async(state)=>{
+  const body=markdown().replace('sources: []','sources:\n  - kind: documentation\n    reference: https://fictional.invalid/evidence');
+  const receipt=await submit(body); fault.remove=receipt.candidate_path; fault.archive=true;
+  const action=()=>state==='published'?approveCandidate(paths,{id:receipt.candidate_id,expectedHash:receipt.content_hash}):rejectCandidate(paths,{id:receipt.candidate_id,expectedHash:receipt.content_hash,reason:'Fictional rejected claim'});
+  await expect(action()).rejects.toThrow(/Injected/);fault.remove='';fault.archive=false;
+  expect(await listCandidates(paths,'alpha')).toEqual([]);
+  expect((await submit(body)).state).toBe(state);
+});
+it('AEF-011 interrupted creation refuses an unrelated external file',async()=>{
+  fault.destination=path.join(root,'candidates','alpha','alpha.learning.md');await expect(submit()).rejects.toThrow();
+  const filename=fault.destination;fault.destination='';await writeFile(filename,markdown('Unrelated external edit.'));
+  await expect(listCandidates(paths,'alpha')).rejects.toMatchObject({code:'CONFLICT'});
+  expect(await readFile(filename,'utf8')).toContain('Unrelated external edit.');
 });
