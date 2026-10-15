@@ -97,7 +97,8 @@ it('AEF-011 preserves rejected-content identity across new submission keys',asyn
 it('AEF-011 serializes real concurrent process submissions with one durable identity',async()=>{
   await saveLocalConfig(paths,paths.config);const file=path.join(root,'payload.md');await writeFile(file,markdown());
   const run=()=>promisify(execFile)(process.execPath,['--import','tsx','src/cli.ts','--root',root,'submit','--repo','alpha','--idempotency-key','concurrent','--file',file]);
-  const results=await Promise.all([run(),run(),run()]);
+  const outcomes=await Promise.allSettled([run(),run(),run()]);expect(outcomes.every(item=>item.status==='fulfilled')).toBe(true);
+  const results=outcomes.map(item=>{if(item.status==='rejected')throw item.reason;return item.value;});
   expect(new Set(results.map(item=>JSON.parse(item.stdout).receipt_id)).size).toBe(1);expect(await listCandidates(paths)).toHaveLength(1);
 });
 it.each(['repo','team','shared','cross-repo'])('AEF-011 retains reviewed %s candidates and refreshes the index',async(kind)=>{

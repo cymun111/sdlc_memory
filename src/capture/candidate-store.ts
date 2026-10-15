@@ -27,8 +27,9 @@ function openLedger(paths: ResolvedPaths): DatabaseSync {
     const filename=path.join(paths.runtimeRoot,'receipts.sqlite'+suffix); safePath(filename,paths.runtimeRoot);
     if(existsSync(filename) && !lstatSync(filename).isFile()) throw new DomainError('FORBIDDEN','Ledger must be a regular file.');
   }
-  const database = new DatabaseSync(path.join(paths.runtimeRoot, 'receipts.sqlite'));
-  database.exec(`PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 10000;
+  const database = new DatabaseSync(path.join(paths.runtimeRoot, 'receipts.sqlite'),{timeout:10000});
+  try {
+  database.exec(`PRAGMA busy_timeout = 10000; PRAGMA journal_mode = WAL;
     CREATE TABLE IF NOT EXISTS submissions (
       idempotency_key TEXT PRIMARY KEY,
       repo_id TEXT NOT NULL,
@@ -50,7 +51,6 @@ function openLedger(paths: ResolvedPaths): DatabaseSync {
       evidence_json TEXT NOT NULL,
       created_at TEXT NOT NULL
     );`);
-  try {
     database.exec('BEGIN IMMEDIATE');
     const columns = database.prepare('PRAGMA table_info(submissions)').all();
     if (!columns.some((column) => column.name === 'submission_hash')) {
@@ -80,8 +80,9 @@ function hashMarkdown(markdown: string): string {
 }
 
 function safeExistingCandidate(paths: ResolvedPaths, repoId: string, id: string): string {
-  if (!/^[a-z0-9]+(?:[.-][a-z0-9]+)*$/.test(id)) throw new DomainError('VALIDATION_ERROR', 'Invalid candidate ID');
+  if (![repoId,id].every(value=>/^[a-z0-9]+(?:[.-][a-z0-9]+)*$/.test(value))) throw new DomainError('VALIDATION_ERROR', 'Invalid candidate identity');
   const filename = path.join(paths.knowledgeRoot, 'candidates', repoId, `${id}.md`);
+  safePath(filename,paths.knowledgeRoot);
   if (!existsSync(filename)) throw new DomainError('NOT_FOUND', 'Pending candidate not found');
   if (!lstatSync(filename).isFile() || realpathSync(filename) !== filename) throw new DomainError('FORBIDDEN', 'Candidate path must not resolve through a symlink');
   return filename;
@@ -133,12 +134,15 @@ export async function updateCandidate(paths: ResolvedPaths, input: { repoId: str
     const rows = database.prepare('SELECT * FROM submissions WHERE repo_id = ? AND candidate_id = ?').all(repo.id, input.id);
     if (!rows.length) throw new DomainError('NOT_FOUND', 'Candidate has no submission receipt');
     if (rows.some((row) => row.state !== 'accepted')) throw new DomainError('CONFLICT', 'Only accepted pending candidates may be updated');
-    const current = hashMarkdown(readFileSync(safeExistingCandidate(paths, repo.id, input.id), 'utf8'));
+    const currentMarkdown=readCapture(safeExistingCandidate(paths,repo.id,input.id),paths.knowledgeRoot);
+    const current = hashMarkdown(currentMarkdown);
     if (current !== input.expectedHash || rows.some((row) => row.content_hash !== current || row.candidate_path !== filename)) {
       throw new DomainError('CONFLICT', 'Candidate changed or its receipt is inconsistent; inspect it again');
     }
     const row = rows[0]!;
     if (hash !== current) {
+      const history=path.join(paths.knowledgeRoot,'candidates',repo.id,'history',input.id,'versions');
+      safeDirectory(history,paths.knowledgeRoot);writeCandidate(path.join(history,current+'.md'),currentMarkdown,current);
       database.prepare('INSERT INTO candidate_updates (repo_id, candidate_id, expected_hash, content_hash, markdown, candidate_path) VALUES (?, ?, ?, ?, ?, ?)')
         .run(repo.id, input.id, current, hash, input.markdown, filename);
     }
@@ -160,6 +164,7 @@ function resolveRepo(paths: ResolvedPaths, repoId: string): RegisteredRepo {
 }
 
 function candidatePath(paths: ResolvedPaths, repoId: string, id: string): string {
+  if(![repoId,id].every(value=>/^[a-z0-9]+(?:[.-][a-z0-9]+)*$/.test(value))) throw new DomainError('VALIDATION_ERROR','Invalid candidate identity.');
   const candidateRoot = path.resolve(paths.knowledgeRoot, 'candidates');
   const directory = path.join(candidateRoot, repoId);
   safeDirectory(directory,paths.knowledgeRoot);
