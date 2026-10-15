@@ -18,7 +18,7 @@ vi.mock('node:child_process',async(original)=>{
     const prompt=options?.input?JSON.parse(options.input):{};client.phases.push(prompt.phase??'legacy');
     if(client.mode==='exit') return {status:17,signal:null,stdout:'',stderr:'private diagnostics'};
     if(client.mode==='interrupt') return {status:null,signal:'SIGTERM',stdout:'',stderr:''};
-    const output=args[args.indexOf('--output-last-message')+1];
+    const outputIndex=args.indexOf('--output-last-message');const output=outputIndex<0?undefined:args[outputIndex+1];
     if(output) {
       const filesystem=process.getBuiltinModule('node:fs');
       const learning='---\n'+stringify({schema_version:1,id:'alpha.session-learning',title:'Fictional completion',summary:'A fictional durable observation',type:'practice',scope:{kind:'repo',repo_id:'alpha'},status:'candidate',owner:'local-owner',sources:[],relationships:[],created_at:'2020-01-01T00:00:00Z',updated_at:'2020-01-01T00:00:00Z'})+'---\nFictional evidence, not a real project claim.';
@@ -84,4 +84,8 @@ it('AEF-012 installs/removes only owned runtime adapter configuration and preser
   await configure(paths,{action:'uninstall'});expect(await readFile(unrelated,'utf8')).toBe('{"keep":true}');
   const next=await configure(paths,{action:'install'});await writeFile(next.path,'{"external":"edit"}');
   await expect(configure(paths,{action:'uninstall'})).rejects.toMatchObject({code:'CONFLICT'});expect(await readFile(next.path,'utf8')).toContain('external');
+});
+it('AEF-012 refuses modified installed adapter configuration before launching',async()=>{
+  const installed=await (sessions as any).configureSessionAdapter(paths,{action:'install'});await writeFile(installed.path,'{"external":"edit"}');
+  await expect(startSession(paths,{repoId:'alpha',agent:'codex',taskFile})).rejects.toMatchObject({code:'CONFLICT'});expect(client.phases).toEqual([]);
 });

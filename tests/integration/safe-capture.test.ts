@@ -7,10 +7,11 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { resolvePaths, type ResolvedPaths } from '../../src/core/config.js';
 import { submitCandidate, listCandidates, updateCandidate } from '../../src/capture/candidate-store.js';
 import { rejectCandidate, approveCandidate } from '../../src/capture/review.js';
-const fault=vi.hoisted(()=>({destination:'',remove:'',archive:false}));
+const fault=vi.hoisted(()=>({destination:'',remove:'',archive:false,replace:'',replacement:''}));
 vi.mock('node:fs',async(original)=>{
   const actual=await original<typeof import('node:fs')>();
   return {...actual,
+    writeFileSync:(...args:Parameters<typeof actual.writeFileSync>)=>{const result=actual.writeFileSync(...args);if(fault.replace && String(args[0]).startsWith(fault.replace+'.')){const file=fault.replace;fault.replace='';actual.writeFileSync(file,fault.replacement);}return result;},
     linkSync:(...args:Parameters<typeof actual.linkSync>)=>{if(String(args[1])===fault.destination) throw new Error('Injected creation interruption'); return actual.linkSync(...args);},
     renameSync:(...args:Parameters<typeof actual.renameSync>)=>{if(String(args[1])===fault.destination || fault.archive) throw new Error('Injected rename interruption'); return actual.renameSync(...args);},
     rmSync:(...args:Parameters<typeof actual.rmSync>)=>{if(String(args[0])===fault.remove) throw new Error('Injected removal interruption'); return actual.rmSync(...args);}
@@ -22,7 +23,7 @@ beforeEach(async()=>{
   await copyFile('schemas/knowledge.schema.json',path.join(root,'schemas/knowledge.schema.json'));
   paths=await resolvePaths({root}); paths.config.repositories=[{id:'alpha',name:'Alpha',owner:'local-owner',team:'local',aliases:[],path:root}];
 });
-afterEach(async()=>{fault.destination='';fault.remove='';fault.archive=false;await rm(root,{recursive:true,force:true});});
+afterEach(async()=>{fault.destination='';fault.remove='';fault.archive=false;fault.replace='';fault.replacement='';await rm(root,{recursive:true,force:true});});
 function markdown(body='Fictional durable observation.') {return '---\n'+stringify({schema_version:1,id:'alpha.learning',title:'Fictional learning',summary:'Fictional summary',type:'practice',scope:{kind:'repo',repo_id:'alpha'},status:'candidate',owner:'local-owner',sources:[],relationships:[],created_at:'2020-01-01T00:00:00Z',updated_at:'2020-01-01T00:00:00Z'})+'---\n'+body;}
 const submit=(body=markdown())=>submitCandidate(paths,{repoId:'alpha',idempotencyKey:'task:1',markdown:body});
 it('AEF-011 caps UTF-8 bytes before any candidate or ledger write',async()=>{
@@ -75,4 +76,14 @@ it('AEF-011 interrupted creation refuses an unrelated external file',async()=>{
   const filename=fault.destination;fault.destination='';await writeFile(filename,markdown('Unrelated external edit.'));
   await expect(listCandidates(paths,'alpha')).rejects.toMatchObject({code:'CONFLICT'});
   expect(await readFile(filename,'utf8')).toContain('Unrelated external edit.');
+});
+it('AEF-011 preserves replacement races detected after update staging',async()=>{
+  const receipt=await submit();fault.replace=receipt.candidate_path;fault.replacement=markdown('Concurrent external edit.');
+  await expect(updateCandidate(paths,{repoId:'alpha',id:receipt.candidate_id,expectedHash:receipt.content_hash,markdown:markdown('Proposed update.')})).rejects.toMatchObject({code:'CONFLICT'});
+  expect(await readFile(receipt.candidate_path,'utf8')).toContain('Concurrent external edit.');
+});
+it('AEF-011 rejects unauthorized rejection without changing candidate history',async()=>{
+  const receipt=await submit();paths.config.owner='other-owner';
+  await expect(rejectCandidate(paths,{id:receipt.candidate_id,expectedHash:receipt.content_hash,reason:'Unauthorized review'})).rejects.toMatchObject({code:'FORBIDDEN'});
+  expect(await readFile(receipt.candidate_path,'utf8')).toBe(markdown());
 });
