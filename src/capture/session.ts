@@ -74,7 +74,9 @@ async function run(paths:ResolvedPaths,receipt:SessionReceipt,launcher?:string):
   const repo=paths.config.repositories.find(item=>item.id===receipt.repo_id);
   if(!repo)throw new DomainError('NOT_FOUND','Session repository is no longer registered.');
   const source=execFileSync('git',['-C',repo.path,'rev-parse','HEAD'],{encoding:'utf8',stdio:['ignore','pipe','ignore']}).trim();
-  const current=contextOutput.parse(await new KnowledgeService(paths).taskContext({repo_id:repo.id,task:receipt.task,source_revision:source,expected_generation:receipt.context_receipt.index_generation}));
+  let current:z.infer<typeof contextOutput>;
+  try{current=contextOutput.parse(await new KnowledgeService(paths).taskContext({repo_id:repo.id,task:receipt.task,source_revision:source,expected_generation:receipt.context_receipt.index_generation}));}
+  catch{receipt.state='blocked-context';save(paths,receipt);return receipt;}
   if(source!==receipt.source_revision || hash(JSON.stringify(current))!==receipt.context_digest || current.status!=='ok'){receipt.state='blocked-context';save(paths,receipt);return receipt;}
   receipt.attempts++;receipt.delivery={consumed:false,acknowledgement_verified:false,acknowledged_at:null,client_turn_completed:false};save(paths,receipt);
   const command=launcher??'codex';
@@ -109,4 +111,27 @@ export async function startSession(paths:ResolvedPaths,input:{repoId:string;agen
 export async function finishSession(paths:ResolvedPaths,id:string,learningFile:string) {return locked(paths,id,()=>complete(paths,load(paths,id),learningFile));}
 export async function resumeSession(paths:ResolvedPaths,id:string,launcher?:string) {
   return locked(paths,id,async()=>{const receipt=load(paths,id);if(receipt.completion_hash && !receipt.state.startsWith('completed-')){await complete(paths,receipt,receipt.result_file);return receipt;}return run(paths,receipt,launcher);});
+}
+
+export async function configureSessionAdapter(paths:ResolvedPaths,input:{action:'install'|'uninstall'|'status'}) {
+  if(!['install','uninstall','status'].includes(input.action))throw new DomainError('VALIDATION_ERROR','Invalid adapter action.');
+  const folder=path.join(paths.runtimeRoot,'session-adapters',adapterId);safeDirectory(folder,paths.runtimeRoot);
+  const target=path.join(folder,'adapter.json'),owner=path.join(folder,'ownership.json');
+  safePath(target,paths.runtimeRoot);safePath(owner,paths.runtimeRoot);
+  const body=existsSync(target)?readCapture(target,paths.runtimeRoot):null;
+  const ownership=existsSync(owner)?z.object({schema_version:z.literal(1),principal:z.string(),content_hash:z.string().regex(/^[a-f0-9]{64}$/)}).strict().parse(JSON.parse(readCapture(owner,paths.runtimeRoot))):null;
+  if(body && (!ownership || ownership.principal!==paths.config.principal || hash(body)!==ownership.content_hash))throw new DomainError('CONFLICT','Adapter configuration is not owned or changed externally; preserve it for review.');
+  if(input.action==='status')return {state:body?'installed':'uninstalled',path:target,adapter:adapterId};
+  if(input.action==='uninstall') {
+    if(body)rmSync(target);if(ownership)rmSync(owner);
+    return {state:'uninstalled',path:target,adapter:adapterId};
+  }
+  const version=spawnSync('codex',['--version'],{encoding:'utf8',windowsHide:true,timeout:10000,maxBuffer:4096});
+  if(version.error || version.status!==0 || !/^codex-cli /.test(String(version.stdout)))throw new DomainError('SOURCE_UNAVAILABLE','Codex executable/version is unavailable.');
+  const config=JSON.stringify({schema_version:1,adapter:adapterId,command:'codex',client_version:String(version.stdout).trim(),transport:'stdin-json/output-schema',sandbox:'read-only'},null,2)+'\n';
+  if(body && body!==config)throw new DomainError('CONFLICT','Installed adapter version changed; uninstall the owned configuration before reinstalling.');
+  if(ownership && ownership.content_hash!==hash(config))throw new DomainError('CONFLICT','Interrupted adapter configuration changed; review ownership before retrying.');
+  if(!ownership)writeFileSync(owner,JSON.stringify({schema_version:1,principal:paths.config.principal,content_hash:hash(config)})+'\n',{flag:'wx',mode:0o600,flush:true});
+  if(!body)writeFileSync(target,config,{flag:'wx',mode:0o600,flush:true});
+  return {state:'installed',path:target,adapter:adapterId};
 }
