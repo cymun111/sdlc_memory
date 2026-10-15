@@ -7,7 +7,7 @@ import type { ResolvedPaths } from '../core/config.js';
 import type { KnowledgeRecord } from '../core/types.js';
 import { buildActiveGeneration } from '../indexing/build-index.js';
 import { parseKnowledgeMarkdown } from '../validation/record.js';
-import { listCandidates, markCandidateState, persistConflictReport, DomainError } from './candidate-store.js';
+import { listCandidates, transitionCandidate, persistConflictReport, DomainError } from './candidate-store.js';
 import { conflictReportSchema } from './conflicts.js';
 import { safeDirectory, safePath, readCapture, screenCapture } from './safety.js';
 
@@ -119,11 +119,7 @@ export async function approveCandidate(paths: ResolvedPaths, input: { id: string
   safePath(destination,paths.knowledgeRoot);
   if (existsSync(destination)) throw new DomainError('CONFLICT', `Publication destination already exists: ${destination}`);
   safeDirectory(path.dirname(destination),paths.knowledgeRoot);
-  const temporary = `${destination}.${randomUUID()}.tmp`;
-  writeFileSync(temporary, published, { flag: 'wx', mode: 0o600 });
-  renameSync(temporary, destination);
-  const archivePath = archiveCandidate(paths, candidate.path, record.id,'published');
-  markCandidateState(paths, record.id, 'published', archivePath);
+  transitionCandidate(paths,{repoId:candidate.repo_id,id:record.id,expectedHash:candidate.hash,original:candidate.markdown,state:'published',destination,published});
   let generation: string | undefined;
   let refreshError: string | undefined;
   try { generation = (await buildActiveGeneration(paths.knowledgeRoot, paths.runtimeRoot)).generation; }
@@ -140,8 +136,7 @@ export async function rejectCandidate(paths: ResolvedPaths, input: { id: string;
   if (!input.reason.trim()) throw new DomainError('VALIDATION_ERROR', 'Rejection requires a reason');
   const candidate = await inspectCandidate(paths, input.id);
   if (input.expectedHash && input.expectedHash !== candidate.hash) throw new DomainError('CONFLICT', 'Candidate changed since inspection');
-  const archivePath = archiveCandidate(paths, candidate.path, candidate.id,'rejected',input.reason);
-  markCandidateState(paths, candidate.id, 'rejected', archivePath, input.reason);
+  const archivePath = transitionCandidate(paths,{repoId:candidate.repo_id,id:candidate.id,expectedHash:candidate.hash,original:candidate.markdown,state:'rejected',reason:input.reason});
   return { id: candidate.id, state: 'rejected', archive_path: archivePath };
 }
 
