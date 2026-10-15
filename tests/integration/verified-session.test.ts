@@ -5,7 +5,11 @@ import os from 'node:os';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { resolvePaths, type ResolvedPaths } from '../../src/core/config.js';
 import { buildActiveGeneration } from '../../src/indexing/build-index.js';
-import { startSession, finishSession } from '../../src/capture/session.js';
+import { startSession, finishSession, resumeSession } from '../../src/capture/session.js';
+import * as sessions from '../../src/capture/session.js';
+import * as candidates from '../../src/capture/candidate-store.js';
+import { KnowledgeService } from '../../src/retrieval/service.js';
+import { stringify } from 'yaml';
 const client=vi.hoisted(()=>({mode:'ok',phases:[] as string[]}));
 vi.mock('node:child_process',async(original)=>{
   const actual=await original<typeof import('node:child_process')>();
@@ -17,7 +21,8 @@ vi.mock('node:child_process',async(original)=>{
     const output=args[args.indexOf('--output-last-message')+1];
     if(output) {
       const filesystem=process.getBuiltinModule('node:fs');
-      const result=prompt.phase==='consume-context'?{schema_version:1,session_id:prompt.session_id,context_digest:client.mode==='bad-ack'?'wrong':prompt.context_digest,index_generation:prompt.context.index_generation,records:prompt.context.results.map((item:any)=>({id:item.id,summary:item.summary}))}:{schema_version:1,session_id:prompt.session_id,context_digest:prompt.context_digest,outcome:'no-learning',markdown:null};
+      const learning='---\n'+stringify({schema_version:1,id:'alpha.session-learning',title:'Fictional completion',summary:'A fictional durable observation',type:'practice',scope:{kind:'repo',repo_id:'alpha'},status:'candidate',owner:'local-owner',sources:[],relationships:[],created_at:'2020-01-01T00:00:00Z',updated_at:'2020-01-01T00:00:00Z'})+'---\nFictional evidence, not a real project claim.';
+      const result=prompt.phase==='consume-context'?{schema_version:1,session_id:prompt.session_id,context_digest:client.mode==='bad-ack'?'wrong':prompt.context_digest,index_generation:prompt.context.index_generation,records:prompt.context.results.map((item:any)=>({id:item.id,summary:item.summary}))}:{schema_version:1,session_id:prompt.session_id,context_digest:prompt.context_digest,outcome:client.mode==='learning'?'learning':'no-learning',markdown:client.mode==='learning'?learning:null};
       filesystem.writeFileSync(output,client.mode==='malformed'?'{bad json':JSON.stringify(result));
     }
     return {status:0,signal:null,stdout:'{"type":"turn.completed"}\n',stderr:''};
@@ -29,7 +34,7 @@ beforeEach(async()=>{
   execFileSync('git',['init',root],{stdio:'ignore'});execFileSync('git',['-C',root,'-c','user.name=Fixture','-c','user.email=fixture@invalid','commit','--allow-empty','-m','Fictional fixture'],{stdio:'ignore'});
   paths=await resolvePaths({root});paths.config.repositories=[{id:'alpha',name:'Alpha',owner:'local-owner',team:'local',aliases:[],path:root}];await buildActiveGeneration(root,paths.runtimeRoot);taskFile=path.join(root,'task.txt');await writeFile(taskFile,'Report a fictional no-learning completion.');
 });
-afterEach(async()=>{await rm(root,{recursive:true,force:true});});
+afterEach(async()=>{vi.restoreAllMocks();await rm(root,{recursive:true,force:true});});
 const start=(extra:object={})=>startSession(paths,{repoId:'alpha',agent:'codex',taskFile,launcher:'synthetic-client',...extra});
 it('AEF-012 requires a verified context acknowledgement before releasing the task',async()=>{
   const receipt=await start();expect(client.phases).toEqual(['consume-context','execute-task']);
@@ -53,4 +58,30 @@ it('AEF-012 no-learning completion replays durably and changed completion confli
   const receipt=await start();const replay=await finishSession(paths,receipt.session_id,receipt.result_file);expect(replay.state).toBe('completed-no-learning');
   const data=JSON.parse(await readFile(receipt.result_file,'utf8'));await writeFile(receipt.result_file,JSON.stringify({...data,outcome:'learning',markdown:'changed'}));
   await expect(finishSession(paths,receipt.session_id,receipt.result_file)).rejects.toMatchObject({code:'CONFLICT'});
+});
+it('AEF-012 blocks mandatory-policy review before any client launch',async()=>{
+  const original=KnowledgeService.prototype.taskContext;vi.spyOn(KnowledgeService.prototype,'taskContext').mockImplementation(async function(this: KnowledgeService,input){return {...await original.call(this,input),status:'POLICY_REVIEW_REQUIRED'};});
+  expect((await start()).state).toBe('blocked-context');expect(client.phases).toEqual([]);
+});
+it('AEF-012 bounds retries across restarts and preserves the same session identity',async()=>{
+  client.mode='bad-ack';const receipt=await start();await resumeSession(paths,receipt.session_id,'synthetic-client');await resumeSession(paths,receipt.session_id,'synthetic-client');
+  const exhausted=await resumeSession(paths,receipt.session_id,'synthetic-client');expect(exhausted.state).toBe('retry-exhausted');expect(exhausted.attempts).toBe(3);expect(client.phases).toHaveLength(3);
+});
+it('AEF-012 reopens a failed intake without relaunching or duplicating learning',async()=>{
+  client.mode='learning';vi.spyOn(candidates,'submitCandidate').mockRejectedValueOnce(new candidates.DomainError('SOURCE_UNAVAILABLE','Injected intake outage'));
+  const receipt=await start();expect(receipt.state).toBe('capture-failed');const phases=client.phases.length;
+  const recovered=await resumeSession(paths,receipt.session_id,'synthetic-client');expect(recovered.state).toBe('completed-candidate-submitted');expect(client.phases).toHaveLength(phases);
+  await finishSession(paths,receipt.session_id,receipt.result_file);expect(await candidates.listCandidates(paths,'alpha')).toHaveLength(1);
+});
+it('AEF-012 explicitly blocks resumed planning after a changed index generation',async()=>{
+  const receipt=await start({prepareOnly:true});await buildActiveGeneration(root,paths.runtimeRoot);
+  expect((await resumeSession(paths,receipt.session_id,'synthetic-client')).state).toBe('blocked-context');expect(client.phases).toEqual([]);
+});
+it('AEF-012 installs/removes only owned runtime adapter configuration and preserves external edits',async()=>{
+  const configure=(sessions as any).configureSessionAdapter;
+  const installed=await configure(paths,{action:'install'});expect(installed.state).toBe('installed');
+  const unrelated=path.join(paths.runtimeRoot,'unrelated.json');await writeFile(unrelated,'{"keep":true}');
+  await configure(paths,{action:'uninstall'});expect(await readFile(unrelated,'utf8')).toBe('{"keep":true}');
+  const next=await configure(paths,{action:'install'});await writeFile(next.path,'{"external":"edit"}');
+  await expect(configure(paths,{action:'uninstall'})).rejects.toMatchObject({code:'CONFLICT'});expect(await readFile(next.path,'utf8')).toContain('external');
 });
