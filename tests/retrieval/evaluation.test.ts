@@ -20,9 +20,9 @@ it('runs the versioned multi-repository baseline through service and MCP and rep
     expect(report.safety.expectation_failures).toEqual([]);
     expect(report.targets.mandatory_policy_recall.target).toBe(1);
     expect(report.targets.relevant_record_coverage.target).toBe(0.9);
-    // Annotated synonym tasks intentionally expose the strict-AND baseline's gaps.
-    expect(report.targets.relevant_record_coverage.met).toBe(false);
-    expect(report.cases.some((item: any) => item.regressions.length > 0)).toBe(true);
+    expect(report.targets.relevant_record_coverage.met).toBe(true);
+    expect(report.cases.some((item: any) => item.regressions.length > 0)).toBe(false);
+    expect(report.comparison.strict_term_relevant_coverage).toBeCloseTo(29/34);
     for (const item of report.cases) {
       expect(item.annotation.length).toBeGreaterThan(10);
       expect(item.service.calls).toBe(1);
@@ -37,11 +37,11 @@ it('runs the versioned multi-repository baseline through service and MCP and rep
 it('measures the real service and SDK paths with a fixed relevance oracle, including explicit policy blockers', async () => {
   const report = await evaluateRetrieval();
   expect(report.safety).toEqual({ passed: true, expectation_failures: [], unauthorized_exposures: 0, interface_mismatches: 0 });
-  expect(report.targets.relevant_record_coverage).toMatchObject({ hits: 29, expected: 34, met: false });
+  expect(report.targets.relevant_record_coverage).toMatchObject({ hits: 34, expected: 34, met: true });
   expect(report.targets.mandatory_policy_recall).toMatchObject({ hits: 54, expected: 54, met: true });
   expect(report.targets.full_document_relevant_coverage).toMatchObject({ hits: 34, expected: 34 });
-  expect(report.totals.regressions.map((item) => item.id)).toEqual(['25', '26', '27', '29']);
+  expect(report.totals.regressions).toEqual([]);
   expect(report.totals.stale_results).toBe(3);
-  expect(report.totals.full_document.calls).toBe(331);
+  expect(report.totals.full_document.calls).toBeGreaterThan(331);
   expect(report.cases.find((item) => item.id === '33')?.service.envelope.data).toMatchObject({ status: 'POLICY_REVIEW_REQUIRED', policy_issues: expect.arrayContaining([{ id: 'orchard.safety', reason: 'disputed' }]) });
 }, 120000);

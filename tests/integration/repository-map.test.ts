@@ -91,3 +91,7 @@ it('rejects linked cache files instead of reading outside the map directory', as
   linkedFile.path = filename;
   await expect(getRepositoryMap(paths, { repo_id: 'sample-app' })).rejects.toMatchObject({ code: 'FORBIDDEN' });
 });
+it('bounds map metadata and items by configured tokens as well as bytes', async () => {
+  await file('safe.ts','export {};'); commit(); await buildRepositoryMap(paths,'sample-app'); paths.config.budgets.maxTokens=1;
+  await expect(getRepositoryMap(paths,{repo_id:'sample-app'})).rejects.toMatchObject({code:'CONTEXT_BUDGET_EXCEEDED'});
+});

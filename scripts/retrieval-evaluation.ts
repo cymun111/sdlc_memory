@@ -14,6 +14,7 @@ import { buildActiveGeneration } from '../src/indexing/build-index.js';
 import { KnowledgeService, type ContextBundle } from '../src/retrieval/service.js';
 import { createMcpServer } from '../src/mcp/server.js';
 import { DomainError } from '../src/capture/candidate-store.js';
+import { rankingVersion } from '../src/retrieval/ranking.js';
 
 const scope = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('shared') }).strict(),
@@ -152,20 +153,27 @@ async function world(fixture: Fixture, scenario: Task['scenario']) {
   } catch (error) { await rm(root, { recursive: true, force: true }); throw error; }
 }
 async function fullDocuments(service: KnowledgeService, definitions: RecordDefinition[], item: Task): Promise<Observation> {
-  const start = performance.now(); let calls = 0; const documents: unknown[] = [];
+  const start = performance.now(); let calls = 0; let bytes = 0; const documents: unknown[] = [];
   const ids = definitions.filter((definition) => definition.status === 'verified' && applicable(definition, item.repo)).map((definition) => definition.id).sort();
   try {
     // The manifest supplies authorized applicability, rather than a search that would inherit strict-term misses.
     for (const id of ids.length ? ids : ['shared.logging']) {
-      calls += 1; documents.push(await service.get(id, item.repo, 32768));
+      let cursor: string|undefined; let generation: string|undefined; let body = ''; let first: Awaited<ReturnType<KnowledgeService['get']>>|undefined;
+      do {
+        calls++;
+        const page = await service.get(id,item.repo,32768,false,{...(cursor?{cursor}:{}),...(generation?{expected_generation:generation}:{})});
+        bytes += Buffer.byteLength(JSON.stringify({ok:true,data:page}),'utf8');
+        first ??= page; generation = page.index_generation; body += page.body; cursor = page.next_cursor??undefined;
+      } while(cursor);
+      documents.push({...first,body,truncated:false,next_cursor:null});
     }
     const envelope: Envelope = { ok: true, data: { results: documents.map((document) => (document as { record: unknown }).record), documents } };
-    const bytes = documents.reduce<number>((total, document) => total + Buffer.byteLength(JSON.stringify({ ok: true, data: document }), 'utf8'), 0);
     return { envelope, calls, bytes, estimated_tokens: Math.ceil(bytes / 3), latency_ms: performance.now() - start };
   } catch (error) { return observed(errorEnvelope(error), calls, performance.now() - start); }
 }
 export async function evaluateRetrieval(fixturePath = defaultFixturePath) {
   const fixtureText = await readFile(fixturePath, 'utf8'); const fixture = fixtureSchema.parse(JSON.parse(fixtureText));
+  const frozen = JSON.parse(await readFile(path.join(projectRoot,'docs/evaluations/aef-005-v1-results.json'),'utf8')) as {targets:{relevant_record_coverage:{measured:number}};cases:Array<{id:string;relevant:{missing:string[]};expected:string[]}>};
   const cases: CaseResult[] = [];
   for (const scenario of [...new Set(fixture.tasks.map((item) => item.scenario))]) {
     const environment = await world(fixture, scenario);
@@ -202,7 +210,7 @@ export async function evaluateRetrieval(fixturePath = defaultFixturePath) {
         const relevant = recall(item.expected, recordIds(serviceEnvelope));
         const baseline = recall(item.expected, recordIds(full.envelope));
         const policies = recall(mandatory, policyReferences(serviceEnvelope));
-        failures.push(...baselineFailures(item.expected, item.baseline_missing, recordIds(serviceEnvelope).filter((id) => !mandatory.includes(id))));
+        failures.push(...baselineFailures(item.expected, [], recordIds(serviceEnvelope).filter((id) => !mandatory.includes(id))));
         if (!item.error && baseline.missing.length) failures.push(`Full-document baseline missed ${baseline.missing.join(', ')}`);
         if (policies.missing.length) failures.push(`Missing mandatory policy references ${policies.missing.join(', ')}`);
         const stale = data.results?.filter((result) => ['needs_revalidation', 'dirty_worktree', 'unknown', 'revision_not_checked'].includes(result.freshness)).map((result) => ({ id: result.id, freshness: result.freshness })) ?? [];
@@ -222,6 +230,7 @@ export async function evaluateRetrieval(fixturePath = defaultFixturePath) {
   const totals = (field: 'service' | 'mcp' | 'full_document') => ({ calls: cases.reduce((sum, item) => sum + item[field].calls, 0), bytes: cases.reduce((sum, item) => sum + item[field].bytes, 0), estimated_tokens: cases.reduce((sum, item) => sum + item[field].estimated_tokens, 0), latency_ms: cases.reduce((sum, item) => sum + item[field].latency_ms, 0) });
   return {
     report_version: 1,
+    ranking_version: rankingVersion,
     fixture_version: fixture.version,
     fixture_sha256: createHash('sha256').update(fixtureText).digest('hex'),
     generated_at: new Date().toISOString(),
@@ -235,8 +244,8 @@ export async function evaluateRetrieval(fixturePath = defaultFixturePath) {
       transport: 'SDK InMemoryTransport', sqlite: process.versions.sqlite ?? 'node:sqlite'
     },
     method: {
-      retrieval: 'current strict-AND FTS plus mandatory policies and authorized curated graph expansion; no ranking changes',
-      full_document: 'all manifest-authorized applicable verified records via get(byte_limit=32768); no task filtering; fixture bodies below cap',
+      retrieval: 'weighted-lexical-1: separate task/topics/paths, bounded explicit alternatives and authorized curated traversal; unchanged fixture relevance oracle',
+      full_document: 'all manifest-authorized applicable verified records via get(byte_limit=32768); follow every generation-bound page to completion; no task filtering',
       byte_measurement: 'UTF-8 application envelope {ok,data}; summed per get for full-document; excludes JSON-RPC framing and duplicate MCP text content',
       tokens: 'ceil(serialized UTF-8 bytes / 3) per task observation, conservative estimate, not model tokens',
       mandatory_policy_recall: 'visible mandatory result OR explicit policy issue OR omitted-mandatory blocking reference; separate from normative compliance',
@@ -244,6 +253,10 @@ export async function evaluateRetrieval(fixturePath = defaultFixturePath) {
       latency: 'one sequential sample per case, service before MCP before full-doc; setup excluded; no timing CI threshold'
     },
     safety: { passed: failures.length === 0 && exposures === 0 && mismatches === 0, expectation_failures: failures, unauthorized_exposures: exposures, interface_mismatches: mismatches },
+    comparison: {
+      strict_term_report: 'docs/evaluations/aef-005-v1-results.json', strict_term_relevant_coverage:frozen.targets.relevant_record_coverage.measured,
+      per_case:cases.map((item)=>{const before=frozen.cases.find((value)=>value.id===item.id);return {id:item.id,recovered:before?.relevant.missing.filter((id)=>!item.relevant.missing.includes(id))??[],regressed:item.relevant.missing.filter((id)=>before?.expected.includes(id) && !before.relevant.missing.includes(id))};})
+    },
     targets: {
       relevant_record_coverage: { ...relevant, target: 0.9, met: relevant.measured !== null && relevant.measured >= 0.9 },
       mandatory_policy_recall: { ...policies, target: 1, met: policies.measured !== null && policies.measured === 1 },

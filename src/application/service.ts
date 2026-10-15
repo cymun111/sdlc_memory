@@ -9,6 +9,7 @@ import { parseKnowledgeMarkdown } from '../validation/record.js';
 import * as contracts from './contracts.js';
 import { provenance } from '../indexing/provenance.js';
 import { setupRepository, uninstallRepository, inspectOnboarding } from '../onboarding/service.js';
+import { limits, fits, envelopeBytes, budgetError } from '../retrieval/budget.js';
 
 /** Trusted local consumer boundary. Caller payloads cannot choose their principal or roots. */
 export class KnowledgeApplication {
@@ -75,21 +76,31 @@ export class KnowledgeApplication {
     const repo_id = this.canonical(input.repo_id);
     const ready = await this.readiness({ contract_version: 1, repo_id });
     if (ready.state !== 'index-available') throw new contracts.IntegrationContractError('INDEX_UNAVAILABLE', 'Build an index before retrieving context.', true);
-    return this.checked(contracts.retrievalOutput, async () => ({ contract_version: 1, repo_id, context: await this.knowledge.taskContext({ repo_id, task: input.task,
+    const cap = limits(this.paths.config,{...(input.max_tokens!==undefined?{max_tokens:input.max_tokens}:{}),...(input.max_bytes!==undefined?{max_bytes:input.max_bytes}:{})});
+    const overhead = envelopeBytes({contract_version:1,repo_id,context:null})-envelopeBytes(null);
+    return this.checked(contracts.retrievalOutput, async () => {
+      const result = { contract_version: 1, repo_id, context: await this.knowledge.taskContext({ repo_id, task: input.task,
       ...(input.topics !== undefined ? { topics: input.topics } : {}),
       ...(input.changed_paths !== undefined ? { changed_paths: input.changed_paths } : {}),
       ...(input.source_revision !== undefined ? { source_revision: input.source_revision } : {}),
-      ...(input.max_tokens !== undefined ? { max_tokens: input.max_tokens } : {}),
+      max_tokens: Math.max(1,cap.tokens-Math.ceil(overhead/3)), max_bytes:Math.max(1,cap.bytes-overhead),
+      ...(input.expected_generation!==undefined?{expected_generation:input.expected_generation}:{}),
       ...(input.max_results !== undefined ? { max_results: input.max_results } : {}),
       ...(input.depth !== undefined ? { depth: input.depth } : {})
-    }) }));
+    }) };
+      if (!fits(result,cap)) budgetError(); return result;
+    });
   }
 
   async prepareDelivery(request: unknown) {
     const input = contracts.parseRequest(contracts.deliveryRequest, request);
     const { task_id, ...retrieval } = input;
-    const result = await this.retrieve(retrieval);
-    return contracts.deliveryOutput.parse({ ...result, task_id, state: 'prepared', consumed: false });
+    const cap=limits(this.paths.config,{...(input.max_tokens!==undefined?{max_tokens:input.max_tokens}:{}),...(input.max_bytes!==undefined?{max_bytes:input.max_bytes}:{})});
+    const extra=Buffer.byteLength(JSON.stringify({task_id,state:'prepared',consumed:false}))-1;
+    const result = await this.retrieve({...retrieval,max_tokens:Math.max(1,cap.tokens-Math.ceil(extra/3)),max_bytes:Math.max(1,cap.bytes-extra)});
+    const delivery=contracts.deliveryOutput.parse({ ...result, task_id, state: 'prepared', consumed: false });
+    if (!fits(delivery,cap)) throw new contracts.IntegrationContractError('CONTEXT_BUDGET_EXCEEDED','Delivery metadata cannot fit the requested budget.');
+    return delivery;
   }
 
   async capture(request: unknown) {

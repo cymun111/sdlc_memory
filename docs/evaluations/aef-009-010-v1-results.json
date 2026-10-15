@@ -1,0 +1,3713 @@
+{
+  "report_version": 1,
+  "ranking_version": "weighted-lexical-1",
+  "fixture_version": "1.0.0",
+  "fixture_sha256": "011b6c4eb7ef344f9cb56904a34a68be9151aea533153fad169de2a4a5bff7fe",
+  "generated_at": "2026-10-14T20:56:58.397Z",
+  "environment": {
+    "node": "v24.16.0",
+    "platform": "win32",
+    "architecture": "x64",
+    "cpu": "AMD Ryzen 5 7600X 6-Core Processor             ",
+    "git": "git version 2.54.0.windows.1",
+    "evaluator_source_commit": "1445fe31371128adf5b9c787e52fee3cdbf5ea2d",
+    "evaluator_source_sha256": "3f30e203ee524ffa3e8a93bd251543074412944ed33042be1db34bfb27f0dfc9",
+    "mcp_sdk": "1.31.0",
+    "transport": "SDK InMemoryTransport",
+    "sqlite": "3.53.0"
+  },
+  "method": {
+    "retrieval": "weighted-lexical-1: separate task/topics/paths, bounded explicit alternatives and authorized curated traversal; unchanged fixture relevance oracle",
+    "full_document": "all manifest-authorized applicable verified records via get(byte_limit=32768); follow every generation-bound page to completion; no task filtering",
+    "byte_measurement": "UTF-8 application envelope {ok,data}; summed per get for full-document; excludes JSON-RPC framing and duplicate MCP text content",
+    "tokens": "ceil(serialized UTF-8 bytes / 3) per task observation, conservative estimate, not model tokens",
+    "mandatory_policy_recall": "visible mandatory result OR explicit policy issue OR omitted-mandatory blocking reference; separate from normative compliance",
+    "aggregation": "micro recall over annotated record-task pairs; empty denominators null; expected error cases excluded from recall denominators",
+    "latency": "one sequential sample per case, service before MCP before full-doc; setup excluded; no timing CI threshold"
+  },
+  "safety": {
+    "passed": true,
+    "expectation_failures": [],
+    "unauthorized_exposures": 0,
+    "interface_mismatches": 0
+  },
+  "comparison": {
+    "strict_term_report": "docs/evaluations/aef-005-v1-results.json",
+    "strict_term_relevant_coverage": 0.8529411764705882,
+    "per_case": [
+      {
+        "id": "01",
+        "recovered": [],
+        "regressed": []
+      },
+      {
+        "id": "02",
+        "recovered": [],
+        "regressed": []
+      },
+      {
+        "id": "03",
+        "recovered": [],
+        "regressed": []
+      },
+      {
+        "id": "04",
+        "recovered": [],
+        "regressed": []
+      },
+      {
+        "id": "05",
+        "recovered": [],
+        "regressed": []
+      },
+      {
+        "id": "06",
+        "recovered": [],
+        "regressed": []
+      },
+      {
+        "id": "07",
+        "recovered": [],
+        "regressed": []
+      },
+      {
+        "id": "08",
+        "recovered": [],
+        "regressed": []
+      },
+      {
+        "id": "09",
+        "recovered": [],
+        "regressed": []
+      },
+      {
+        "id": "10",
+        "recovered": [],
+        "regressed": []
+      },
+      {
+        "id": "11",
+        "recovered": [],
+        "regressed": []
+      },
+      {
+        "id": "12",
+        "recovered": [],
+        "regressed": []
+      },
+      {
+        "id": "13",
+        "recovered": [],
+        "regressed": []
+      },
+      {
+        "id": "14",
+        "recovered": [],
+        "regressed": []
+      },
+      {
+        "id": "15",
+        "recovered": [],
+        "regressed": []
+      },
+      {
+        "id": "16",
+        "recovered": [],
+        "regressed": []
+      },
+      {
+        "id": "17",
+        "recovered": [],
+        "regressed": []
+      },
+      {
+        "id": "18",
+        "recovered": [],
+        "regressed": []
+      },
+      {
+        "id": "19",
+        "recovered": [],
+        "regressed": []
+      },
+      {
+        "id": "20",
+        "recovered": [],
+        "regressed": []
+      },
+      {
+        "id": "21",
+        "recovered": [],
+        "regressed": []
+      },
+      {
+        "id": "22",
+        "recovered": [],
+        "regressed": []
+      },
+      {
+        "id": "23",
+        "recovered": [],
+        "regressed": []
+      },
+      {
+        "id": "24",
+        "recovered": [],
+        "regressed": []
+      },
+      {
+        "id": "25",
+        "recovered": [
+          "orchard.retry",
+          "cross.checkout"
+        ],
+        "regressed": []
+      },
+      {
+        "id": "26",
+        "recovered": [
+          "ledger.reconcile"
+        ],
+        "regressed": []
+      },
+      {
+        "id": "27",
+        "recovered": [
+          "studio.export"
+        ],
+        "regressed": []
+      },
+      {
+        "id": "28",
+        "recovered": [],
+        "regressed": []
+      },
+      {
+        "id": "29",
+        "recovered": [
+          "orchard.cache"
+        ],
+        "regressed": []
+      },
+      {
+        "id": "30",
+        "recovered": [],
+        "regressed": []
+      },
+      {
+        "id": "31",
+        "recovered": [],
+        "regressed": []
+      },
+      {
+        "id": "32",
+        "recovered": [],
+        "regressed": []
+      },
+      {
+        "id": "33",
+        "recovered": [],
+        "regressed": []
+      },
+      {
+        "id": "34",
+        "recovered": [],
+        "regressed": []
+      },
+      {
+        "id": "35",
+        "recovered": [],
+        "regressed": []
+      },
+      {
+        "id": "36",
+        "recovered": [],
+        "regressed": []
+      }
+    ]
+  },
+  "targets": {
+    "relevant_record_coverage": {
+      "hits": 34,
+      "expected": 34,
+      "measured": 1,
+      "target": 0.9,
+      "met": true
+    },
+    "mandatory_policy_recall": {
+      "hits": 54,
+      "expected": 54,
+      "measured": 1,
+      "target": 1,
+      "met": true
+    },
+    "full_document_relevant_coverage": {
+      "hits": 34,
+      "expected": 34,
+      "measured": 1
+    }
+  },
+  "totals": {
+    "service": {
+      "calls": 36,
+      "bytes": 76349,
+      "estimated_tokens": 25465,
+      "latency_ms": 2739.623599999993
+    },
+    "mcp": {
+      "calls": 36,
+      "bytes": 76349,
+      "estimated_tokens": 25465,
+      "latency_ms": 2758.231100000025
+    },
+    "full_document": {
+      "calls": 660,
+      "bytes": 3011350,
+      "estimated_tokens": 1003794,
+      "latency_ms": 49216.33280000002
+    },
+    "stale_results": 3,
+    "regressions": []
+  },
+  "cases": [
+    {
+      "id": "01",
+      "annotation": "Direct retry terms and one curated checkout dependency.",
+      "scenario": "normal",
+      "input": {
+        "repo_id": "orchard",
+        "task": "Retry idempotency",
+        "source_revision": "e6d57d6b2a49abcda16d319ca42be61acbf5084b"
+      },
+      "expected": [
+        "orchard.retry",
+        "cross.checkout"
+      ],
+      "mandatory": [
+        "commerce.audit",
+        "orchard.safety"
+      ],
+      "denied_record_ids": [
+        "ledger.safety",
+        "ledger.settlement",
+        "ledger.reconcile",
+        "ledger.decimal",
+        "ledger.refund",
+        "studio.render",
+        "studio.palette",
+        "studio.export",
+        "vault.secret",
+        "secretteam.rule"
+      ],
+      "service": {
+        "calls": 1,
+        "bytes": 2882,
+        "estimated_tokens": 961,
+        "latency_ms": 71.66940000000022,
+        "returned_ids": [
+          "commerce.audit",
+          "orchard.safety",
+          "orchard.retry",
+          "cross.checkout"
+        ],
+        "status": "ok"
+      },
+      "mcp": {
+        "calls": 1,
+        "bytes": 2882,
+        "estimated_tokens": 961,
+        "latency_ms": 69.33400000000029,
+        "returned_ids": [
+          "commerce.audit",
+          "orchard.safety",
+          "orchard.retry",
+          "cross.checkout"
+        ],
+        "status": "ok"
+      },
+      "full_document": {
+        "calls": 24,
+        "bytes": 109959,
+        "estimated_tokens": 36653,
+        "latency_ms": 1761.2846999999997,
+        "returned_ids": [
+          "commerce.audit",
+          "cross.checkout",
+          "cross.restricted",
+          "orchard.cache",
+          "orchard.pagination",
+          "orchard.retry",
+          "orchard.rollback",
+          "orchard.safety",
+          "orchard.stale",
+          "orchard.timeout",
+          "orchard.unicode",
+          "shared.logging"
+        ],
+        "status": "ok"
+      },
+      "relevant": {
+        "hits": 2,
+        "expected": 2,
+        "ratio": 1,
+        "missing": []
+      },
+      "full_document_relevant": {
+        "hits": 2,
+        "expected": 2,
+        "ratio": 1,
+        "missing": []
+      },
+      "mandatory_policy": {
+        "hits": 2,
+        "expected": 2,
+        "ratio": 1,
+        "missing": []
+      },
+      "stale_results": [],
+      "unauthorized_exposures": [],
+      "interface_match": true,
+      "expectation_failures": [],
+      "regressions": []
+    },
+    {
+      "id": "02",
+      "annotation": "Second hop must retain the checkout contract but cannot cross task applicability into ledger-only settlement scope.",
+      "scenario": "normal",
+      "input": {
+        "repo_id": "orchard",
+        "task": "Retry idempotency",
+        "source_revision": "e6d57d6b2a49abcda16d319ca42be61acbf5084b",
+        "depth": 2
+      },
+      "expected": [
+        "orchard.retry",
+        "cross.checkout"
+      ],
+      "mandatory": [
+        "commerce.audit",
+        "orchard.safety"
+      ],
+      "denied_record_ids": [
+        "ledger.safety",
+        "ledger.settlement",
+        "ledger.reconcile",
+        "ledger.decimal",
+        "ledger.refund",
+        "studio.render",
+        "studio.palette",
+        "studio.export",
+        "vault.secret",
+        "secretteam.rule"
+      ],
+      "service": {
+        "calls": 1,
+        "bytes": 2882,
+        "estimated_tokens": 961,
+        "latency_ms": 72.2529999999997,
+        "returned_ids": [
+          "commerce.audit",
+          "orchard.safety",
+          "orchard.retry",
+          "cross.checkout"
+        ],
+        "status": "ok"
+      },
+      "mcp": {
+        "calls": 1,
+        "bytes": 2882,
+        "estimated_tokens": 961,
+        "latency_ms": 71.85750000000007,
+        "returned_ids": [
+          "commerce.audit",
+          "orchard.safety",
+          "orchard.retry",
+          "cross.checkout"
+        ],
+        "status": "ok"
+      },
+      "full_document": {
+        "calls": 24,
+        "bytes": 109959,
+        "estimated_tokens": 36653,
+        "latency_ms": 1725.8898,
+        "returned_ids": [
+          "commerce.audit",
+          "cross.checkout",
+          "cross.restricted",
+          "orchard.cache",
+          "orchard.pagination",
+          "orchard.retry",
+          "orchard.rollback",
+          "orchard.safety",
+          "orchard.stale",
+          "orchard.timeout",
+          "orchard.unicode",
+          "shared.logging"
+        ],
+        "status": "ok"
+      },
+      "relevant": {
+        "hits": 2,
+        "expected": 2,
+        "ratio": 1,
+        "missing": []
+      },
+      "full_document_relevant": {
+        "hits": 2,
+        "expected": 2,
+        "ratio": 1,
+        "missing": []
+      },
+      "mandatory_policy": {
+        "hits": 2,
+        "expected": 2,
+        "ratio": 1,
+        "missing": []
+      },
+      "stale_results": [],
+      "unauthorized_exposures": [],
+      "interface_match": true,
+      "expectation_failures": [],
+      "regressions": []
+    },
+    {
+      "id": "03",
+      "annotation": "Direct cache maintenance terminology.",
+      "scenario": "normal",
+      "input": {
+        "repo_id": "orchard",
+        "task": "Cache expiry",
+        "source_revision": "e6d57d6b2a49abcda16d319ca42be61acbf5084b"
+      },
+      "expected": [
+        "orchard.cache"
+      ],
+      "mandatory": [
+        "commerce.audit",
+        "orchard.safety"
+      ],
+      "denied_record_ids": [
+        "ledger.safety",
+        "ledger.settlement",
+        "ledger.reconcile",
+        "ledger.decimal",
+        "ledger.refund",
+        "studio.render",
+        "studio.palette",
+        "studio.export",
+        "vault.secret",
+        "secretteam.rule"
+      ],
+      "service": {
+        "calls": 1,
+        "bytes": 2454,
+        "estimated_tokens": 818,
+        "latency_ms": 71.34349999999995,
+        "returned_ids": [
+          "commerce.audit",
+          "orchard.safety",
+          "orchard.cache"
+        ],
+        "status": "ok"
+      },
+      "mcp": {
+        "calls": 1,
+        "bytes": 2454,
+        "estimated_tokens": 818,
+        "latency_ms": 69.8139000000001,
+        "returned_ids": [
+          "commerce.audit",
+          "orchard.safety",
+          "orchard.cache"
+        ],
+        "status": "ok"
+      },
+      "full_document": {
+        "calls": 24,
+        "bytes": 109959,
+        "estimated_tokens": 36653,
+        "latency_ms": 1715.1493999999993,
+        "returned_ids": [
+          "commerce.audit",
+          "cross.checkout",
+          "cross.restricted",
+          "orchard.cache",
+          "orchard.pagination",
+          "orchard.retry",
+          "orchard.rollback",
+          "orchard.safety",
+          "orchard.stale",
+          "orchard.timeout",
+          "orchard.unicode",
+          "shared.logging"
+        ],
+        "status": "ok"
+      },
+      "relevant": {
+        "hits": 1,
+        "expected": 1,
+        "ratio": 1,
+        "missing": []
+      },
+      "full_document_relevant": {
+        "hits": 1,
+        "expected": 1,
+        "ratio": 1,
+        "missing": []
+      },
+      "mandatory_policy": {
+        "hits": 2,
+        "expected": 2,
+        "ratio": 1,
+        "missing": []
+      },
+      "stale_results": [],
+      "unauthorized_exposures": [],
+      "interface_match": true,
+      "expectation_failures": [],
+      "regressions": []
+    },
+    {
+      "id": "04",
+      "annotation": "Direct stable pagination terminology.",
+      "scenario": "normal",
+      "input": {
+        "repo_id": "orchard",
+        "task": "Cursor pagination",
+        "source_revision": "e6d57d6b2a49abcda16d319ca42be61acbf5084b"
+      },
+      "expected": [
+        "orchard.pagination"
+      ],
+      "mandatory": [
+        "commerce.audit",
+        "orchard.safety"
+      ],
+      "denied_record_ids": [
+        "ledger.safety",
+        "ledger.settlement",
+        "ledger.reconcile",
+        "ledger.decimal",
+        "ledger.refund",
+        "studio.render",
+        "studio.palette",
+        "studio.export",
+        "vault.secret",
+        "secretteam.rule"
+      ],
+      "service": {
+        "calls": 1,
+        "bytes": 2470,
+        "estimated_tokens": 824,
+        "latency_ms": 74.17439999999988,
+        "returned_ids": [
+          "commerce.audit",
+          "orchard.safety",
+          "orchard.pagination"
+        ],
+        "status": "ok"
+      },
+      "mcp": {
+        "calls": 1,
+        "bytes": 2470,
+        "estimated_tokens": 824,
+        "latency_ms": 70.65770000000157,
+        "returned_ids": [
+          "commerce.audit",
+          "orchard.safety",
+          "orchard.pagination"
+        ],
+        "status": "ok"
+      },
+      "full_document": {
+        "calls": 24,
+        "bytes": 109959,
+        "estimated_tokens": 36653,
+        "latency_ms": 1807.6427999999996,
+        "returned_ids": [
+          "commerce.audit",
+          "cross.checkout",
+          "cross.restricted",
+          "orchard.cache",
+          "orchard.pagination",
+          "orchard.retry",
+          "orchard.rollback",
+          "orchard.safety",
+          "orchard.stale",
+          "orchard.timeout",
+          "orchard.unicode",
+          "shared.logging"
+        ],
+        "status": "ok"
+      },
+      "relevant": {
+        "hits": 1,
+        "expected": 1,
+        "ratio": 1,
+        "missing": []
+      },
+      "full_document_relevant": {
+        "hits": 1,
+        "expected": 1,
+        "ratio": 1,
+        "missing": []
+      },
+      "mandatory_policy": {
+        "hits": 2,
+        "expected": 2,
+        "ratio": 1,
+        "missing": []
+      },
+      "stale_results": [],
+      "unauthorized_exposures": [],
+      "interface_match": true,
+      "expectation_failures": [],
+      "regressions": []
+    },
+    {
+      "id": "05",
+      "annotation": "Direct request cancellation terminology.",
+      "scenario": "normal",
+      "input": {
+        "repo_id": "orchard",
+        "task": "Request timeout",
+        "source_revision": "e6d57d6b2a49abcda16d319ca42be61acbf5084b"
+      },
+      "expected": [
+        "orchard.timeout"
+      ],
+      "mandatory": [
+        "commerce.audit",
+        "orchard.safety"
+      ],
+      "denied_record_ids": [
+        "ledger.safety",
+        "ledger.settlement",
+        "ledger.reconcile",
+        "ledger.decimal",
+        "ledger.refund",
+        "studio.render",
+        "studio.palette",
+        "studio.export",
+        "vault.secret",
+        "secretteam.rule"
+      ],
+      "service": {
+        "calls": 1,
+        "bytes": 2456,
+        "estimated_tokens": 819,
+        "latency_ms": 71.66790000000037,
+        "returned_ids": [
+          "commerce.audit",
+          "orchard.safety",
+          "orchard.timeout"
+        ],
+        "status": "ok"
+      },
+      "mcp": {
+        "calls": 1,
+        "bytes": 2456,
+        "estimated_tokens": 819,
+        "latency_ms": 72.71360000000095,
+        "returned_ids": [
+          "commerce.audit",
+          "orchard.safety",
+          "orchard.timeout"
+        ],
+        "status": "ok"
+      },
+      "full_document": {
+        "calls": 24,
+        "bytes": 109959,
+        "estimated_tokens": 36653,
+        "latency_ms": 1748.0452999999998,
+        "returned_ids": [
+          "commerce.audit",
+          "cross.checkout",
+          "cross.restricted",
+          "orchard.cache",
+          "orchard.pagination",
+          "orchard.retry",
+          "orchard.rollback",
+          "orchard.safety",
+          "orchard.stale",
+          "orchard.timeout",
+          "orchard.unicode",
+          "shared.logging"
+        ],
+        "status": "ok"
+      },
+      "relevant": {
+        "hits": 1,
+        "expected": 1,
+        "ratio": 1,
+        "missing": []
+      },
+      "full_document_relevant": {
+        "hits": 1,
+        "expected": 1,
+        "ratio": 1,
+        "missing": []
+      },
+      "mandatory_policy": {
+        "hits": 2,
+        "expected": 2,
+        "ratio": 1,
+        "missing": []
+      },
+      "stale_results": [],
+      "unauthorized_exposures": [],
+      "interface_match": true,
+      "expectation_failures": [],
+      "regressions": []
+    },
+    {
+      "id": "06",
+      "annotation": "Direct release recovery terminology.",
+      "scenario": "normal",
+      "input": {
+        "repo_id": "orchard",
+        "task": "Release rollback",
+        "source_revision": "e6d57d6b2a49abcda16d319ca42be61acbf5084b"
+      },
+      "expected": [
+        "orchard.rollback"
+      ],
+      "mandatory": [
+        "commerce.audit",
+        "orchard.safety"
+      ],
+      "denied_record_ids": [
+        "ledger.safety",
+        "ledger.settlement",
+        "ledger.reconcile",
+        "ledger.decimal",
+        "ledger.refund",
+        "studio.render",
+        "studio.palette",
+        "studio.export",
+        "vault.secret",
+        "secretteam.rule"
+      ],
+      "service": {
+        "calls": 1,
+        "bytes": 2464,
+        "estimated_tokens": 822,
+        "latency_ms": 69.60030000000006,
+        "returned_ids": [
+          "commerce.audit",
+          "orchard.safety",
+          "orchard.rollback"
+        ],
+        "status": "ok"
+      },
+      "mcp": {
+        "calls": 1,
+        "bytes": 2464,
+        "estimated_tokens": 822,
+        "latency_ms": 69.45900000000074,
+        "returned_ids": [
+          "commerce.audit",
+          "orchard.safety",
+          "orchard.rollback"
+        ],
+        "status": "ok"
+      },
+      "full_document": {
+        "calls": 24,
+        "bytes": 109959,
+        "estimated_tokens": 36653,
+        "latency_ms": 1740.5901999999987,
+        "returned_ids": [
+          "commerce.audit",
+          "cross.checkout",
+          "cross.restricted",
+          "orchard.cache",
+          "orchard.pagination",
+          "orchard.retry",
+          "orchard.rollback",
+          "orchard.safety",
+          "orchard.stale",
+          "orchard.timeout",
+          "orchard.unicode",
+          "shared.logging"
+        ],
+        "status": "ok"
+      },
+      "relevant": {
+        "hits": 1,
+        "expected": 1,
+        "ratio": 1,
+        "missing": []
+      },
+      "full_document_relevant": {
+        "hits": 1,
+        "expected": 1,
+        "ratio": 1,
+        "missing": []
+      },
+      "mandatory_policy": {
+        "hits": 2,
+        "expected": 2,
+        "ratio": 1,
+        "missing": []
+      },
+      "stale_results": [],
+      "unauthorized_exposures": [],
+      "interface_match": true,
+      "expectation_failures": [],
+      "regressions": []
+    },
+    {
+      "id": "07",
+      "annotation": "Unicode accented terms exercise real FTS matching.",
+      "scenario": "normal",
+      "input": {
+        "repo_id": "orchard",
+        "task": "CafÃ© rÃ©sumÃ©",
+        "source_revision": "e6d57d6b2a49abcda16d319ca42be61acbf5084b"
+      },
+      "expected": [
+        "orchard.unicode"
+      ],
+      "mandatory": [
+        "commerce.audit",
+        "orchard.safety"
+      ],
+      "denied_record_ids": [
+        "ledger.safety",
+        "ledger.settlement",
+        "ledger.reconcile",
+        "ledger.decimal",
+        "ledger.refund",
+        "studio.render",
+        "studio.palette",
+        "studio.export",
+        "vault.secret",
+        "secretteam.rule"
+      ],
+      "service": {
+        "calls": 1,
+        "bytes": 2467,
+        "estimated_tokens": 823,
+        "latency_ms": 69.66830000000118,
+        "returned_ids": [
+          "commerce.audit",
+          "orchard.safety",
+          "orchard.unicode"
+        ],
+        "status": "ok"
+      },
+      "mcp": {
+        "calls": 1,
+        "bytes": 2467,
+        "estimated_tokens": 823,
+        "latency_ms": 70.96860000000015,
+        "returned_ids": [
+          "commerce.audit",
+          "orchard.safety",
+          "orchard.unicode"
+        ],
+        "status": "ok"
+      },
+      "full_document": {
+        "calls": 24,
+        "bytes": 109959,
+        "estimated_tokens": 36653,
+        "latency_ms": 1740.8076999999994,
+        "returned_ids": [
+          "commerce.audit",
+          "cross.checkout",
+          "cross.restricted",
+          "orchard.cache",
+          "orchard.pagination",
+          "orchard.retry",
+          "orchard.rollback",
+          "orchard.safety",
+          "orchard.stale",
+          "orchard.timeout",
+          "orchard.unicode",
+          "shared.logging"
+        ],
+        "status": "ok"
+      },
+      "relevant": {
+        "hits": 1,
+        "expected": 1,
+        "ratio": 1,
+        "missing": []
+      },
+      "full_document_relevant": {
+        "hits": 1,
+        "expected": 1,
+        "ratio": 1,
+        "missing": []
+      },
+      "mandatory_policy": {
+        "hits": 2,
+        "expected": 2,
+        "ratio": 1,
+        "missing": []
+      },
+      "stale_results": [],
+      "unauthorized_exposures": [],
+      "interface_match": true,
+      "expectation_failures": [],
+      "regressions": []
+    },
+    {
+      "id": "08",
+      "annotation": "Ledger settlement terminology without orchard exposure.",
+      "scenario": "normal",
+      "input": {
+        "repo_id": "ledger",
+        "task": "Settlement batch",
+        "source_revision": "e6d57d6b2a49abcda16d319ca42be61acbf5084b"
+      },
+      "expected": [
+        "ledger.settlement"
+      ],
+      "mandatory": [
+        "commerce.audit",
+        "ledger.safety"
+      ],
+      "denied_record_ids": [
+        "orchard.safety",
+        "orchard.retry",
+        "orchard.cache",
+        "orchard.pagination",
+        "orchard.timeout",
+        "orchard.rollback",
+        "orchard.unicode",
+        "orchard.stale",
+        "orchard.old",
+        "orchard.disputed",
+        "studio.render",
+        "studio.palette",
+        "studio.export",
+        "cross.restricted",
+        "vault.secret",
+        "secretteam.rule"
+      ],
+      "service": {
+        "calls": 1,
+        "bytes": 2458,
+        "estimated_tokens": 820,
+        "latency_ms": 71.90900000000147,
+        "returned_ids": [
+          "commerce.audit",
+          "ledger.safety",
+          "ledger.settlement"
+        ],
+        "status": "ok"
+      },
+      "mcp": {
+        "calls": 1,
+        "bytes": 2458,
+        "estimated_tokens": 820,
+        "latency_ms": 71.88640000000123,
+        "returned_ids": [
+          "commerce.audit",
+          "ledger.safety",
+          "ledger.settlement"
+        ],
+        "status": "ok"
+      },
+      "full_document": {
+        "calls": 16,
+        "bytes": 73363,
+        "estimated_tokens": 24455,
+        "latency_ms": 1130.3227000000006,
+        "returned_ids": [
+          "commerce.audit",
+          "cross.checkout",
+          "ledger.decimal",
+          "ledger.reconcile",
+          "ledger.refund",
+          "ledger.safety",
+          "ledger.settlement",
+          "shared.logging"
+        ],
+        "status": "ok"
+      },
+      "relevant": {
+        "hits": 1,
+        "expected": 1,
+        "ratio": 1,
+        "missing": []
+      },
+      "full_document_relevant": {
+        "hits": 1,
+        "expected": 1,
+        "ratio": 1,
+        "missing": []
+      },
+      "mandatory_policy": {
+        "hits": 2,
+        "expected": 2,
+        "ratio": 1,
+        "missing": []
+      },
+      "stale_results": [],
+      "unauthorized_exposures": [],
+      "interface_match": true,
+      "expectation_failures": [],
+      "regressions": []
+    },
+    {
+      "id": "09",
+      "annotation": "Ledger balance reconciliation direct match.",
+      "scenario": "normal",
+      "input": {
+        "repo_id": "ledger",
+        "task": "Balance reconciliation",
+        "source_revision": "e6d57d6b2a49abcda16d319ca42be61acbf5084b"
+      },
+      "expected": [
+        "ledger.reconcile"
+      ],
+      "mandatory": [
+        "commerce.audit",
+        "ledger.safety"
+      ],
+      "denied_record_ids": [
+        "orchard.safety",
+        "orchard.retry",
+        "orchard.cache",
+        "orchard.pagination",
+        "orchard.timeout",
+        "orchard.rollback",
+        "orchard.unicode",
+        "orchard.stale",
+        "orchard.old",
+        "orchard.disputed",
+        "studio.render",
+        "studio.palette",
+        "studio.export",
+        "cross.restricted",
+        "vault.secret",
+        "secretteam.rule"
+      ],
+      "service": {
+        "calls": 1,
+        "bytes": 2467,
+        "estimated_tokens": 823,
+        "latency_ms": 77.3724000000002,
+        "returned_ids": [
+          "commerce.audit",
+          "ledger.safety",
+          "ledger.reconcile"
+        ],
+        "status": "ok"
+      },
+      "mcp": {
+        "calls": 1,
+        "bytes": 2467,
+        "estimated_tokens": 823,
+        "latency_ms": 83.38899999999921,
+        "returned_ids": [
+          "commerce.audit",
+          "ledger.safety",
+          "ledger.reconcile"
+        ],
+        "status": "ok"
+      },
+      "full_document": {
+        "calls": 16,
+        "bytes": 73363,
+        "estimated_tokens": 24455,
+        "latency_ms": 1112.4786999999997,
+        "returned_ids": [
+          "commerce.audit",
+          "cross.checkout",
+          "ledger.decimal",
+          "ledger.reconcile",
+          "ledger.refund",
+          "ledger.safety",
+          "ledger.settlement",
+          "shared.logging"
+        ],
+        "status": "ok"
+      },
+      "relevant": {
+        "hits": 1,
+        "expected": 1,
+        "ratio": 1,
+        "missing": []
+      },
+      "full_document_relevant": {
+        "hits": 1,
+        "expected": 1,
+        "ratio": 1,
+        "missing": []
+      },
+      "mandatory_policy": {
+        "hits": 2,
+        "expected": 2,
+        "ratio": 1,
+        "missing": []
+      },
+      "stale_results": [],
+      "unauthorized_exposures": [],
+      "interface_match": true,
+      "expectation_failures": [],
+      "regressions": []
+    },
+    {
+      "id": "10",
+      "annotation": "Ledger integer precision direct match.",
+      "scenario": "normal",
+      "input": {
+        "repo_id": "ledger",
+        "task": "Decimal precision",
+        "source_revision": "e6d57d6b2a49abcda16d319ca42be61acbf5084b"
+      },
+      "expected": [
+        "ledger.decimal"
+      ],
+      "mandatory": [
+        "commerce.audit",
+        "ledger.safety"
+      ],
+      "denied_record_ids": [
+        "orchard.safety",
+        "orchard.retry",
+        "orchard.cache",
+        "orchard.pagination",
+        "orchard.timeout",
+        "orchard.rollback",
+        "orchard.unicode",
+        "orchard.stale",
+        "orchard.old",
+        "orchard.disputed",
+        "studio.render",
+        "studio.palette",
+        "studio.export",
+        "cross.restricted",
+        "vault.secret",
+        "secretteam.rule"
+      ],
+      "service": {
+        "calls": 1,
+        "bytes": 2458,
+        "estimated_tokens": 820,
+        "latency_ms": 73.66779999999926,
+        "returned_ids": [
+          "commerce.audit",
+          "ledger.safety",
+          "ledger.decimal"
+        ],
+        "status": "ok"
+      },
+      "mcp": {
+        "calls": 1,
+        "bytes": 2458,
+        "estimated_tokens": 820,
+        "latency_ms": 71.66059999999925,
+        "returned_ids": [
+          "commerce.audit",
+          "ledger.safety",
+          "ledger.decimal"
+        ],
+        "status": "ok"
+      },
+      "full_document": {
+        "calls": 16,
+        "bytes": 73363,
+        "estimated_tokens": 24455,
+        "latency_ms": 1224.4876999999979,
+        "returned_ids": [
+          "commerce.audit",
+          "cross.checkout",
+          "ledger.decimal",
+          "ledger.reconcile",
+          "ledger.refund",
+          "ledger.safety",
+          "ledger.settlement",
+          "shared.logging"
+        ],
+        "status": "ok"
+      },
+      "relevant": {
+        "hits": 1,
+        "expected": 1,
+        "ratio": 1,
+        "missing": []
+      },
+      "full_document_relevant": {
+        "hits": 1,
+        "expected": 1,
+        "ratio": 1,
+        "missing": []
+      },
+      "mandatory_policy": {
+        "hits": 2,
+        "expected": 2,
+        "ratio": 1,
+        "missing": []
+      },
+      "stale_results": [],
+      "unauthorized_exposures": [],
+      "interface_match": true,
+      "expectation_failures": [],
+      "regressions": []
+    },
+    {
+      "id": "11",
+      "annotation": "Ledger sequence ordering direct match.",
+      "scenario": "normal",
+      "input": {
+        "repo_id": "ledger",
+        "task": "Refund ordering",
+        "source_revision": "e6d57d6b2a49abcda16d319ca42be61acbf5084b"
+      },
+      "expected": [
+        "ledger.refund"
+      ],
+      "mandatory": [
+        "commerce.audit",
+        "ledger.safety"
+      ],
+      "denied_record_ids": [
+        "orchard.safety",
+        "orchard.retry",
+        "orchard.cache",
+        "orchard.pagination",
+        "orchard.timeout",
+        "orchard.rollback",
+        "orchard.unicode",
+        "orchard.stale",
+        "orchard.old",
+        "orchard.disputed",
+        "studio.render",
+        "studio.palette",
+        "studio.export",
+        "cross.restricted",
+        "vault.secret",
+        "secretteam.rule"
+      ],
+      "service": {
+        "calls": 1,
+        "bytes": 2451,
+        "estimated_tokens": 817,
+        "latency_ms": 77.01420000000144,
+        "returned_ids": [
+          "commerce.audit",
+          "ledger.safety",
+          "ledger.refund"
+        ],
+        "status": "ok"
+      },
+      "mcp": {
+        "calls": 1,
+        "bytes": 2451,
+        "estimated_tokens": 817,
+        "latency_ms": 70.97719999999754,
+        "returned_ids": [
+          "commerce.audit",
+          "ledger.safety",
+          "ledger.refund"
+        ],
+        "status": "ok"
+      },
+      "full_document": {
+        "calls": 16,
+        "bytes": 73363,
+        "estimated_tokens": 24455,
+        "latency_ms": 1116.842700000001,
+        "returned_ids": [
+          "commerce.audit",
+          "cross.checkout",
+          "ledger.decimal",
+          "ledger.reconcile",
+          "ledger.refund",
+          "ledger.safety",
+          "ledger.settlement",
+          "shared.logging"
+        ],
+        "status": "ok"
+      },
+      "relevant": {
+        "hits": 1,
+        "expected": 1,
+        "ratio": 1,
+        "missing": []
+      },
+      "full_document_relevant": {
+        "hits": 1,
+        "expected": 1,
+        "ratio": 1,
+        "missing": []
+      },
+      "mandatory_policy": {
+        "hits": 2,
+        "expected": 2,
+        "ratio": 1,
+        "missing": []
+      },
+      "stale_results": [],
+      "unauthorized_exposures": [],
+      "interface_match": true,
+      "expectation_failures": [],
+      "regressions": []
+    },
+    {
+      "id": "12",
+      "annotation": "Unrelated renderer receives its own direct frame knowledge.",
+      "scenario": "normal",
+      "input": {
+        "repo_id": "studio",
+        "task": "Render frame",
+        "source_revision": "e6d57d6b2a49abcda16d319ca42be61acbf5084b"
+      },
+      "expected": [
+        "studio.render"
+      ],
+      "mandatory": [],
+      "denied_record_ids": [
+        "commerce.audit",
+        "orchard.safety",
+        "ledger.safety",
+        "orchard.retry",
+        "orchard.cache",
+        "orchard.pagination",
+        "orchard.timeout",
+        "orchard.rollback",
+        "orchard.unicode",
+        "orchard.stale",
+        "orchard.old",
+        "orchard.disputed",
+        "ledger.settlement",
+        "ledger.reconcile",
+        "ledger.decimal",
+        "ledger.refund",
+        "cross.checkout",
+        "cross.restricted",
+        "vault.secret",
+        "secretteam.rule"
+      ],
+      "service": {
+        "calls": 1,
+        "bytes": 1458,
+        "estimated_tokens": 486,
+        "latency_ms": 64.80370000000039,
+        "returned_ids": [
+          "studio.render"
+        ],
+        "status": "ok"
+      },
+      "mcp": {
+        "calls": 1,
+        "bytes": 1458,
+        "estimated_tokens": 486,
+        "latency_ms": 62.6095000000023,
+        "returned_ids": [
+          "studio.render"
+        ],
+        "status": "ok"
+      },
+      "full_document": {
+        "calls": 8,
+        "bytes": 35977,
+        "estimated_tokens": 11993,
+        "latency_ms": 562.6204999999973,
+        "returned_ids": [
+          "shared.logging",
+          "studio.export",
+          "studio.palette",
+          "studio.render"
+        ],
+        "status": "ok"
+      },
+      "relevant": {
+        "hits": 1,
+        "expected": 1,
+        "ratio": 1,
+        "missing": []
+      },
+      "full_document_relevant": {
+        "hits": 1,
+        "expected": 1,
+        "ratio": 1,
+        "missing": []
+      },
+      "mandatory_policy": {
+        "hits": 0,
+        "expected": 0,
+        "ratio": null,
+        "missing": []
+      },
+      "stale_results": [],
+      "unauthorized_exposures": [],
+      "interface_match": true,
+      "expectation_failures": [],
+      "regressions": []
+    },
+    {
+      "id": "13",
+      "annotation": "Unrelated studio palette terminology.",
+      "scenario": "normal",
+      "input": {
+        "repo_id": "studio",
+        "task": "Color palette",
+        "source_revision": "e6d57d6b2a49abcda16d319ca42be61acbf5084b"
+      },
+      "expected": [
+        "studio.palette"
+      ],
+      "mandatory": [],
+      "denied_record_ids": [
+        "commerce.audit",
+        "orchard.safety",
+        "ledger.safety",
+        "orchard.retry",
+        "orchard.cache",
+        "orchard.pagination",
+        "orchard.timeout",
+        "orchard.rollback",
+        "orchard.unicode",
+        "orchard.stale",
+        "orchard.old",
+        "orchard.disputed",
+        "ledger.settlement",
+        "ledger.reconcile",
+        "ledger.decimal",
+        "ledger.refund",
+        "cross.checkout",
+        "cross.restricted",
+        "vault.secret",
+        "secretteam.rule"
+      ],
+      "service": {
+        "calls": 1,
+        "bytes": 1465,
+        "estimated_tokens": 489,
+        "latency_ms": 79.60940000000119,
+        "returned_ids": [
+          "studio.palette"
+        ],
+        "status": "ok"
+      },
+      "mcp": {
+        "calls": 1,
+        "bytes": 1465,
+        "estimated_tokens": 489,
+        "latency_ms": 71.47920000000158,
+        "returned_ids": [
+          "studio.palette"
+        ],
+        "status": "ok"
+      },
+      "full_document": {
+        "calls": 8,
+        "bytes": 35977,
+        "estimated_tokens": 11993,
+        "latency_ms": 552.4650000000001,
+        "returned_ids": [
+          "shared.logging",
+          "studio.export",
+          "studio.palette",
+          "studio.render"
+        ],
+        "status": "ok"
+      },
+      "relevant": {
+        "hits": 1,
+        "expected": 1,
+        "ratio": 1,
+        "missing": []
+      },
+      "full_document_relevant": {
+        "hits": 1,
+        "expected": 1,
+        "ratio": 1,
+        "missing": []
+      },
+      "mandatory_policy": {
+        "hits": 0,
+        "expected": 0,
+        "ratio": null,
+        "missing": []
+      },
+      "stale_results": [],
+      "unauthorized_exposures": [],
+      "interface_match": true,
+      "expectation_failures": [],
+      "regressions": []
+    },
+    {
+      "id": "14",
+      "annotation": "Unrelated studio export terminology.",
+      "scenario": "normal",
+      "input": {
+        "repo_id": "studio",
+        "task": "Image export",
+        "source_revision": "e6d57d6b2a49abcda16d319ca42be61acbf5084b"
+      },
+      "expected": [
+        "studio.export"
+      ],
+      "mandatory": [],
+      "denied_record_ids": [
+        "commerce.audit",
+        "orchard.safety",
+        "ledger.safety",
+        "orchard.retry",
+        "orchard.cache",
+        "orchard.pagination",
+        "orchard.timeout",
+        "orchard.rollback",
+        "orchard.unicode",
+        "orchard.stale",
+        "orchard.old",
+        "orchard.disputed",
+        "ledger.settlement",
+        "ledger.reconcile",
+        "ledger.decimal",
+        "ledger.refund",
+        "cross.checkout",
+        "cross.restricted",
+        "vault.secret",
+        "secretteam.rule"
+      ],
+      "service": {
+        "calls": 1,
+        "bytes": 1459,
+        "estimated_tokens": 487,
+        "latency_ms": 67.3755999999994,
+        "returned_ids": [
+          "studio.export"
+        ],
+        "status": "ok"
+      },
+      "mcp": {
+        "calls": 1,
+        "bytes": 1459,
+        "estimated_tokens": 487,
+        "latency_ms": 67.59130000000005,
+        "returned_ids": [
+          "studio.export"
+        ],
+        "status": "ok"
+      },
+      "full_document": {
+        "calls": 8,
+        "bytes": 35977,
+        "estimated_tokens": 11993,
+        "latency_ms": 543.2158999999992,
+        "returned_ids": [
+          "shared.logging",
+          "studio.export",
+          "studio.palette",
+          "studio.render"
+        ],
+        "status": "ok"
+      },
+      "relevant": {
+        "hits": 1,
+        "expected": 1,
+        "ratio": 1,
+        "missing": []
+      },
+      "full_document_relevant": {
+        "hits": 1,
+        "expected": 1,
+        "ratio": 1,
+        "missing": []
+      },
+      "mandatory_policy": {
+        "hits": 0,
+        "expected": 0,
+        "ratio": null,
+        "missing": []
+      },
+      "stale_results": [],
+      "unauthorized_exposures": [],
+      "interface_match": true,
+      "expectation_failures": [],
+      "regressions": []
+    },
+    {
+      "id": "15",
+      "annotation": "Shared practice applies to orchard alongside mandatory policies.",
+      "scenario": "normal",
+      "input": {
+        "repo_id": "orchard",
+        "task": "Structured logging",
+        "source_revision": "e6d57d6b2a49abcda16d319ca42be61acbf5084b"
+      },
+      "expected": [
+        "shared.logging"
+      ],
+      "mandatory": [
+        "commerce.audit",
+        "orchard.safety"
+      ],
+      "denied_record_ids": [
+        "ledger.safety",
+        "ledger.settlement",
+        "ledger.reconcile",
+        "ledger.decimal",
+        "ledger.refund",
+        "studio.render",
+        "studio.palette",
+        "studio.export",
+        "vault.secret",
+        "secretteam.rule"
+      ],
+      "service": {
+        "calls": 1,
+        "bytes": 2455,
+        "estimated_tokens": 819,
+        "latency_ms": 68.60199999999895,
+        "returned_ids": [
+          "commerce.audit",
+          "orchard.safety",
+          "shared.logging"
+        ],
+        "status": "ok"
+      },
+      "mcp": {
+        "calls": 1,
+        "bytes": 2455,
+        "estimated_tokens": 819,
+        "latency_ms": 70.84000000000015,
+        "returned_ids": [
+          "commerce.audit",
+          "orchard.safety",
+          "shared.logging"
+        ],
+        "status": "ok"
+      },
+      "full_document": {
+        "calls": 24,
+        "bytes": 109959,
+        "estimated_tokens": 36653,
+        "latency_ms": 1945.0576,
+        "returned_ids": [
+          "commerce.audit",
+          "cross.checkout",
+          "cross.restricted",
+          "orchard.cache",
+          "orchard.pagination",
+          "orchard.retry",
+          "orchard.rollback",
+          "orchard.safety",
+          "orchard.stale",
+          "orchard.timeout",
+          "orchard.unicode",
+          "shared.logging"
+        ],
+        "status": "ok"
+      },
+      "relevant": {
+        "hits": 1,
+        "expected": 1,
+        "ratio": 1,
+        "missing": []
+      },
+      "full_document_relevant": {
+        "hits": 1,
+        "expected": 1,
+        "ratio": 1,
+        "missing": []
+      },
+      "mandatory_policy": {
+        "hits": 2,
+        "expected": 2,
+        "ratio": 1,
+        "missing": []
+      },
+      "stale_results": [],
+      "unauthorized_exposures": [],
+      "interface_match": true,
+      "expectation_failures": [],
+      "regressions": []
+    },
+    {
+      "id": "16",
+      "annotation": "Shared practice applies to an unrelated studio with no mandatory policies.",
+      "scenario": "normal",
+      "input": {
+        "repo_id": "studio",
+        "task": "Structured logging",
+        "source_revision": "e6d57d6b2a49abcda16d319ca42be61acbf5084b"
+      },
+      "expected": [
+        "shared.logging"
+      ],
+      "mandatory": [],
+      "denied_record_ids": [
+        "commerce.audit",
+        "orchard.safety",
+        "ledger.safety",
+        "orchard.retry",
+        "orchard.cache",
+        "orchard.pagination",
+        "orchard.timeout",
+        "orchard.rollback",
+        "orchard.unicode",
+        "orchard.stale",
+        "orchard.old",
+        "orchard.disputed",
+        "ledger.settlement",
+        "ledger.reconcile",
+        "ledger.decimal",
+        "ledger.refund",
+        "cross.checkout",
+        "cross.restricted",
+        "vault.secret",
+        "secretteam.rule"
+      ],
+      "service": {
+        "calls": 1,
+        "bytes": 1468,
+        "estimated_tokens": 490,
+        "latency_ms": 65.7487000000001,
+        "returned_ids": [
+          "shared.logging"
+        ],
+        "status": "ok"
+      },
+      "mcp": {
+        "calls": 1,
+        "bytes": 1468,
+        "estimated_tokens": 490,
+        "latency_ms": 68.04000000000087,
+        "returned_ids": [
+          "shared.logging"
+        ],
+        "status": "ok"
+      },
+      "full_document": {
+        "calls": 8,
+        "bytes": 35977,
+        "estimated_tokens": 11993,
+        "latency_ms": 540.0246999999981,
+        "returned_ids": [
+          "shared.logging",
+          "studio.export",
+          "studio.palette",
+          "studio.render"
+        ],
+        "status": "ok"
+      },
+      "relevant": {
+        "hits": 1,
+        "expected": 1,
+        "ratio": 1,
+        "missing": []
+      },
+      "full_document_relevant": {
+        "hits": 1,
+        "expected": 1,
+        "ratio": 1,
+        "missing": []
+      },
+      "mandatory_policy": {
+        "hits": 0,
+        "expected": 0,
+        "ratio": null,
+        "missing": []
+      },
+      "stale_results": [],
+      "unauthorized_exposures": [],
+      "interface_match": true,
+      "expectation_failures": [],
+      "regressions": []
+    },
+    {
+      "id": "17",
+      "annotation": "Curated checkout contract and applicable ledger neighbor.",
+      "scenario": "normal",
+      "input": {
+        "repo_id": "ledger",
+        "task": "Checkout contract",
+        "source_revision": "e6d57d6b2a49abcda16d319ca42be61acbf5084b"
+      },
+      "expected": [
+        "cross.checkout",
+        "ledger.settlement"
+      ],
+      "mandatory": [
+        "commerce.audit",
+        "ledger.safety"
+      ],
+      "denied_record_ids": [
+        "orchard.safety",
+        "orchard.retry",
+        "orchard.cache",
+        "orchard.pagination",
+        "orchard.timeout",
+        "orchard.rollback",
+        "orchard.unicode",
+        "orchard.stale",
+        "orchard.old",
+        "orchard.disputed",
+        "studio.render",
+        "studio.palette",
+        "studio.export",
+        "cross.restricted",
+        "vault.secret",
+        "secretteam.rule"
+      ],
+      "service": {
+        "calls": 1,
+        "bytes": 2881,
+        "estimated_tokens": 961,
+        "latency_ms": 67.90039999999863,
+        "returned_ids": [
+          "commerce.audit",
+          "ledger.safety",
+          "cross.checkout",
+          "ledger.settlement"
+        ],
+        "status": "ok"
+      },
+      "mcp": {
+        "calls": 1,
+        "bytes": 2881,
+        "estimated_tokens": 961,
+        "latency_ms": 67.49200000000201,
+        "returned_ids": [
+          "commerce.audit",
+          "ledger.safety",
+          "cross.checkout",
+          "ledger.settlement"
+        ],
+        "status": "ok"
+      },
+      "full_document": {
+        "calls": 16,
+        "bytes": 73363,
+        "estimated_tokens": 24455,
+        "latency_ms": 1116.4006000000008,
+        "returned_ids": [
+          "commerce.audit",
+          "cross.checkout",
+          "ledger.decimal",
+          "ledger.reconcile",
+          "ledger.refund",
+          "ledger.safety",
+          "ledger.settlement",
+          "shared.logging"
+        ],
+        "status": "ok"
+      },
+      "relevant": {
+        "hits": 2,
+        "expected": 2,
+        "ratio": 1,
+        "missing": []
+      },
+      "full_document_relevant": {
+        "hits": 2,
+        "expected": 2,
+        "ratio": 1,
+        "missing": []
+      },
+      "mandatory_policy": {
+        "hits": 2,
+        "expected": 2,
+        "ratio": 1,
+        "missing": []
+      },
+      "stale_results": [],
+      "unauthorized_exposures": [],
+      "interface_match": true,
+      "expectation_failures": [],
+      "regressions": []
+    },
+    {
+      "id": "18",
+      "annotation": "Orchard-only retry and checkout scopes are absent from studio; successful empty context.",
+      "scenario": "normal",
+      "input": {
+        "repo_id": "studio",
+        "task": "Retry idempotency",
+        "source_revision": "e6d57d6b2a49abcda16d319ca42be61acbf5084b"
+      },
+      "expected": [],
+      "mandatory": [],
+      "denied_record_ids": [
+        "commerce.audit",
+        "orchard.safety",
+        "ledger.safety",
+        "orchard.retry",
+        "orchard.cache",
+        "orchard.pagination",
+        "orchard.timeout",
+        "orchard.rollback",
+        "orchard.unicode",
+        "orchard.stale",
+        "orchard.old",
+        "orchard.disputed",
+        "ledger.settlement",
+        "ledger.reconcile",
+        "ledger.decimal",
+        "ledger.refund",
+        "cross.checkout",
+        "cross.restricted",
+        "vault.secret",
+        "secretteam.rule"
+      ],
+      "service": {
+        "calls": 1,
+        "bytes": 1072,
+        "estimated_tokens": 358,
+        "latency_ms": 71.0486000000019,
+        "returned_ids": [],
+        "status": "ok"
+      },
+      "mcp": {
+        "calls": 1,
+        "bytes": 1072,
+        "estimated_tokens": 358,
+        "latency_ms": 65.35840000000098,
+        "returned_ids": [],
+        "status": "ok"
+      },
+      "full_document": {
+        "calls": 8,
+        "bytes": 35977,
+        "estimated_tokens": 11993,
+        "latency_ms": 553.1251000000011,
+        "returned_ids": [
+          "shared.logging",
+          "studio.export",
+          "studio.palette",
+          "studio.render"
+        ],
+        "status": "ok"
+      },
+      "relevant": {
+        "hits": 0,
+        "expected": 0,
+        "ratio": null,
+        "missing": []
+      },
+      "full_document_relevant": {
+        "hits": 0,
+        "expected": 0,
+        "ratio": null,
+        "missing": []
+      },
+      "mandatory_policy": {
+        "hits": 0,
+        "expected": 0,
+        "ratio": null,
+        "missing": []
+      },
+      "stale_results": [],
+      "unauthorized_exposures": [],
+      "interface_match": true,
+      "expectation_failures": [],
+      "regressions": []
+    },
+    {
+      "id": "19",
+      "annotation": "Unknown strict terms produce a genuine successful empty result.",
+      "scenario": "normal",
+      "input": {
+        "repo_id": "studio",
+        "task": "quasar-never-match",
+        "source_revision": "e6d57d6b2a49abcda16d319ca42be61acbf5084b"
+      },
+      "expected": [],
+      "mandatory": [],
+      "denied_record_ids": [
+        "commerce.audit",
+        "orchard.safety",
+        "ledger.safety",
+        "orchard.retry",
+        "orchard.cache",
+        "orchard.pagination",
+        "orchard.timeout",
+        "orchard.rollback",
+        "orchard.unicode",
+        "orchard.stale",
+        "orchard.old",
+        "orchard.disputed",
+        "ledger.settlement",
+        "ledger.reconcile",
+        "ledger.decimal",
+        "ledger.refund",
+        "cross.checkout",
+        "cross.restricted",
+        "vault.secret",
+        "secretteam.rule"
+      ],
+      "service": {
+        "calls": 1,
+        "bytes": 1072,
+        "estimated_tokens": 358,
+        "latency_ms": 68.22899999999936,
+        "returned_ids": [],
+        "status": "ok"
+      },
+      "mcp": {
+        "calls": 1,
+        "bytes": 1072,
+        "estimated_tokens": 358,
+        "latency_ms": 67.71080000000075,
+        "returned_ids": [],
+        "status": "ok"
+      },
+      "full_document": {
+        "calls": 8,
+        "bytes": 35977,
+        "estimated_tokens": 11993,
+        "latency_ms": 566.2043000000012,
+        "returned_ids": [
+          "shared.logging",
+          "studio.export",
+          "studio.palette",
+          "studio.render"
+        ],
+        "status": "ok"
+      },
+      "relevant": {
+        "hits": 0,
+        "expected": 0,
+        "ratio": null,
+        "missing": []
+      },
+      "full_document_relevant": {
+        "hits": 0,
+        "expected": 0,
+        "ratio": null,
+        "missing": []
+      },
+      "mandatory_policy": {
+        "hits": 0,
+        "expected": 0,
+        "ratio": null,
+        "missing": []
+      },
+      "stale_results": [],
+      "unauthorized_exposures": [],
+      "interface_match": true,
+      "expectation_failures": [],
+      "regressions": []
+    },
+    {
+      "id": "20",
+      "annotation": "No direct matches still retain both applicable mandatory policies.",
+      "scenario": "normal",
+      "input": {
+        "repo_id": "orchard",
+        "task": "quasar-never-match",
+        "source_revision": "e6d57d6b2a49abcda16d319ca42be61acbf5084b"
+      },
+      "expected": [],
+      "mandatory": [
+        "commerce.audit",
+        "orchard.safety"
+      ],
+      "denied_record_ids": [
+        "ledger.safety",
+        "ledger.settlement",
+        "ledger.reconcile",
+        "ledger.decimal",
+        "ledger.refund",
+        "studio.render",
+        "studio.palette",
+        "studio.export",
+        "vault.secret",
+        "secretteam.rule"
+      ],
+      "service": {
+        "calls": 1,
+        "bytes": 2058,
+        "estimated_tokens": 686,
+        "latency_ms": 81.26529999999912,
+        "returned_ids": [
+          "commerce.audit",
+          "orchard.safety"
+        ],
+        "status": "ok"
+      },
+      "mcp": {
+        "calls": 1,
+        "bytes": 2058,
+        "estimated_tokens": 686,
+        "latency_ms": 69.24120000000039,
+        "returned_ids": [
+          "commerce.audit",
+          "orchard.safety"
+        ],
+        "status": "ok"
+      },
+      "full_document": {
+        "calls": 24,
+        "bytes": 109959,
+        "estimated_tokens": 36653,
+        "latency_ms": 1719.7452999999987,
+        "returned_ids": [
+          "commerce.audit",
+          "cross.checkout",
+          "cross.restricted",
+          "orchard.cache",
+          "orchard.pagination",
+          "orchard.retry",
+          "orchard.rollback",
+          "orchard.safety",
+          "orchard.stale",
+          "orchard.timeout",
+          "orchard.unicode",
+          "shared.logging"
+        ],
+        "status": "ok"
+      },
+      "relevant": {
+        "hits": 0,
+        "expected": 0,
+        "ratio": null,
+        "missing": []
+      },
+      "full_document_relevant": {
+        "hits": 0,
+        "expected": 0,
+        "ratio": null,
+        "missing": []
+      },
+      "mandatory_policy": {
+        "hits": 2,
+        "expected": 2,
+        "ratio": 1,
+        "missing": []
+      },
+      "stale_results": [],
+      "unauthorized_exposures": [],
+      "interface_match": true,
+      "expectation_failures": [],
+      "regressions": []
+    },
+    {
+      "id": "21",
+      "annotation": "Superseded record is excluded from ordinary task context.",
+      "scenario": "normal",
+      "input": {
+        "repo_id": "orchard",
+        "task": "Retired parser",
+        "source_revision": "e6d57d6b2a49abcda16d319ca42be61acbf5084b"
+      },
+      "expected": [],
+      "mandatory": [
+        "commerce.audit",
+        "orchard.safety"
+      ],
+      "denied_record_ids": [
+        "ledger.safety",
+        "ledger.settlement",
+        "ledger.reconcile",
+        "ledger.decimal",
+        "ledger.refund",
+        "studio.render",
+        "studio.palette",
+        "studio.export",
+        "vault.secret",
+        "secretteam.rule"
+      ],
+      "service": {
+        "calls": 1,
+        "bytes": 2058,
+        "estimated_tokens": 686,
+        "latency_ms": 68.65989999999874,
+        "returned_ids": [
+          "commerce.audit",
+          "orchard.safety"
+        ],
+        "status": "ok"
+      },
+      "mcp": {
+        "calls": 1,
+        "bytes": 2058,
+        "estimated_tokens": 686,
+        "latency_ms": 68.53970000000118,
+        "returned_ids": [
+          "commerce.audit",
+          "orchard.safety"
+        ],
+        "status": "ok"
+      },
+      "full_document": {
+        "calls": 24,
+        "bytes": 109959,
+        "estimated_tokens": 36653,
+        "latency_ms": 1709.0432999999975,
+        "returned_ids": [
+          "commerce.audit",
+          "cross.checkout",
+          "cross.restricted",
+          "orchard.cache",
+          "orchard.pagination",
+          "orchard.retry",
+          "orchard.rollback",
+          "orchard.safety",
+          "orchard.stale",
+          "orchard.timeout",
+          "orchard.unicode",
+          "shared.logging"
+        ],
+        "status": "ok"
+      },
+      "relevant": {
+        "hits": 0,
+        "expected": 0,
+        "ratio": null,
+        "missing": []
+      },
+      "full_document_relevant": {
+        "hits": 0,
+        "expected": 0,
+        "ratio": null,
+        "missing": []
+      },
+      "mandatory_policy": {
+        "hits": 2,
+        "expected": 2,
+        "ratio": 1,
+        "missing": []
+      },
+      "stale_results": [],
+      "unauthorized_exposures": [],
+      "interface_match": true,
+      "expectation_failures": [],
+      "regressions": []
+    },
+    {
+      "id": "22",
+      "annotation": "Disputed practice is excluded from ordinary task context.",
+      "scenario": "normal",
+      "input": {
+        "repo_id": "orchard",
+        "task": "Disputed parser",
+        "source_revision": "e6d57d6b2a49abcda16d319ca42be61acbf5084b"
+      },
+      "expected": [],
+      "mandatory": [
+        "commerce.audit",
+        "orchard.safety"
+      ],
+      "denied_record_ids": [
+        "ledger.safety",
+        "ledger.settlement",
+        "ledger.reconcile",
+        "ledger.decimal",
+        "ledger.refund",
+        "studio.render",
+        "studio.palette",
+        "studio.export",
+        "vault.secret",
+        "secretteam.rule"
+      ],
+      "service": {
+        "calls": 1,
+        "bytes": 2058,
+        "estimated_tokens": 686,
+        "latency_ms": 78.00590000000011,
+        "returned_ids": [
+          "commerce.audit",
+          "orchard.safety"
+        ],
+        "status": "ok"
+      },
+      "mcp": {
+        "calls": 1,
+        "bytes": 2058,
+        "estimated_tokens": 686,
+        "latency_ms": 72.24910000000091,
+        "returned_ids": [
+          "commerce.audit",
+          "orchard.safety"
+        ],
+        "status": "ok"
+      },
+      "full_document": {
+        "calls": 24,
+        "bytes": 109959,
+        "estimated_tokens": 36653,
+        "latency_ms": 1706.244700000003,
+        "returned_ids": [
+          "commerce.audit",
+          "cross.checkout",
+          "cross.restricted",
+          "orchard.cache",
+          "orchard.pagination",
+          "orchard.retry",
+          "orchard.rollback",
+          "orchard.safety",
+          "orchard.stale",
+          "orchard.timeout",
+          "orchard.unicode",
+          "shared.logging"
+        ],
+        "status": "ok"
+      },
+      "relevant": {
+        "hits": 0,
+        "expected": 0,
+        "ratio": null,
+        "missing": []
+      },
+      "full_document_relevant": {
+        "hits": 0,
+        "expected": 0,
+        "ratio": null,
+        "missing": []
+      },
+      "mandatory_policy": {
+        "hits": 2,
+        "expected": 2,
+        "ratio": 1,
+        "missing": []
+      },
+      "stale_results": [],
+      "unauthorized_exposures": [],
+      "interface_match": true,
+      "expectation_failures": [],
+      "regressions": []
+    },
+    {
+      "id": "23",
+      "annotation": "Changed cited source must carry explicit stale freshness; returned stale result is measured.",
+      "scenario": "normal",
+      "input": {
+        "repo_id": "orchard",
+        "task": "Legacy parser",
+        "source_revision": "e6d57d6b2a49abcda16d319ca42be61acbf5084b"
+      },
+      "expected": [
+        "orchard.stale"
+      ],
+      "mandatory": [
+        "commerce.audit",
+        "orchard.safety"
+      ],
+      "denied_record_ids": [
+        "ledger.safety",
+        "ledger.settlement",
+        "ledger.reconcile",
+        "ledger.decimal",
+        "ledger.refund",
+        "studio.render",
+        "studio.palette",
+        "studio.export",
+        "vault.secret",
+        "secretteam.rule"
+      ],
+      "service": {
+        "calls": 1,
+        "bytes": 2581,
+        "estimated_tokens": 861,
+        "latency_ms": 149.17319999999745,
+        "returned_ids": [
+          "commerce.audit",
+          "orchard.safety",
+          "orchard.stale"
+        ],
+        "status": "ok"
+      },
+      "mcp": {
+        "calls": 1,
+        "bytes": 2581,
+        "estimated_tokens": 861,
+        "latency_ms": 153.43020000000251,
+        "returned_ids": [
+          "commerce.audit",
+          "orchard.safety",
+          "orchard.stale"
+        ],
+        "status": "ok"
+      },
+      "full_document": {
+        "calls": 24,
+        "bytes": 109959,
+        "estimated_tokens": 36653,
+        "latency_ms": 1705.1798000000053,
+        "returned_ids": [
+          "commerce.audit",
+          "cross.checkout",
+          "cross.restricted",
+          "orchard.cache",
+          "orchard.pagination",
+          "orchard.retry",
+          "orchard.rollback",
+          "orchard.safety",
+          "orchard.stale",
+          "orchard.timeout",
+          "orchard.unicode",
+          "shared.logging"
+        ],
+        "status": "ok"
+      },
+      "relevant": {
+        "hits": 1,
+        "expected": 1,
+        "ratio": 1,
+        "missing": []
+      },
+      "full_document_relevant": {
+        "hits": 1,
+        "expected": 1,
+        "ratio": 1,
+        "missing": []
+      },
+      "mandatory_policy": {
+        "hits": 2,
+        "expected": 2,
+        "ratio": 1,
+        "missing": []
+      },
+      "stale_results": [
+        {
+          "id": "orchard.stale",
+          "freshness": "needs_revalidation"
+        }
+      ],
+      "unauthorized_exposures": [],
+      "interface_match": true,
+      "expectation_failures": [],
+      "regressions": []
+    },
+    {
+      "id": "24",
+      "annotation": "Cross-repo scope, source path and relationship are projected to exclude denied vault metadata.",
+      "scenario": "normal",
+      "input": {
+        "repo_id": "orchard",
+        "task": "Restricted bridge",
+        "source_revision": "e6d57d6b2a49abcda16d319ca42be61acbf5084b"
+      },
+      "expected": [
+        "cross.restricted"
+      ],
+      "mandatory": [
+        "commerce.audit",
+        "orchard.safety"
+      ],
+      "denied_record_ids": [
+        "ledger.safety",
+        "ledger.settlement",
+        "ledger.reconcile",
+        "ledger.decimal",
+        "ledger.refund",
+        "studio.render",
+        "studio.palette",
+        "studio.export",
+        "vault.secret",
+        "secretteam.rule"
+      ],
+      "service": {
+        "calls": 1,
+        "bytes": 2476,
+        "estimated_tokens": 826,
+        "latency_ms": 72.00360000000364,
+        "returned_ids": [
+          "commerce.audit",
+          "orchard.safety",
+          "cross.restricted"
+        ],
+        "status": "ok"
+      },
+      "mcp": {
+        "calls": 1,
+        "bytes": 2476,
+        "estimated_tokens": 826,
+        "latency_ms": 71.9751000000033,
+        "returned_ids": [
+          "commerce.audit",
+          "orchard.safety",
+          "cross.restricted"
+        ],
+        "status": "ok"
+      },
+      "full_document": {
+        "calls": 24,
+        "bytes": 109959,
+        "estimated_tokens": 36653,
+        "latency_ms": 1747.8434000000052,
+        "returned_ids": [
+          "commerce.audit",
+          "cross.checkout",
+          "cross.restricted",
+          "orchard.cache",
+          "orchard.pagination",
+          "orchard.retry",
+          "orchard.rollback",
+          "orchard.safety",
+          "orchard.stale",
+          "orchard.timeout",
+          "orchard.unicode",
+          "shared.logging"
+        ],
+        "status": "ok"
+      },
+      "relevant": {
+        "hits": 1,
+        "expected": 1,
+        "ratio": 1,
+        "missing": []
+      },
+      "full_document_relevant": {
+        "hits": 1,
+        "expected": 1,
+        "ratio": 1,
+        "missing": []
+      },
+      "mandatory_policy": {
+        "hits": 2,
+        "expected": 2,
+        "ratio": 1,
+        "missing": []
+      },
+      "stale_results": [
+        {
+          "id": "cross.restricted",
+          "freshness": "unknown"
+        }
+      ],
+      "unauthorized_exposures": [],
+      "interface_match": true,
+      "expectation_failures": [],
+      "regressions": []
+    },
+    {
+      "id": "25",
+      "annotation": "Natural task synonyms intentionally expose strict-AND matching misses before AEF-009.",
+      "scenario": "normal",
+      "input": {
+        "repo_id": "orchard",
+        "task": "replay duplicate requests safely",
+        "source_revision": "e6d57d6b2a49abcda16d319ca42be61acbf5084b"
+      },
+      "expected": [
+        "orchard.retry",
+        "cross.checkout"
+      ],
+      "mandatory": [
+        "commerce.audit",
+        "orchard.safety"
+      ],
+      "denied_record_ids": [
+        "ledger.safety",
+        "ledger.settlement",
+        "ledger.reconcile",
+        "ledger.decimal",
+        "ledger.refund",
+        "studio.render",
+        "studio.palette",
+        "studio.export",
+        "vault.secret",
+        "secretteam.rule"
+      ],
+      "service": {
+        "calls": 1,
+        "bytes": 2882,
+        "estimated_tokens": 961,
+        "latency_ms": 68.98539999999775,
+        "returned_ids": [
+          "commerce.audit",
+          "orchard.safety",
+          "orchard.retry",
+          "cross.checkout"
+        ],
+        "status": "ok"
+      },
+      "mcp": {
+        "calls": 1,
+        "bytes": 2882,
+        "estimated_tokens": 961,
+        "latency_ms": 69.06300000000192,
+        "returned_ids": [
+          "commerce.audit",
+          "orchard.safety",
+          "orchard.retry",
+          "cross.checkout"
+        ],
+        "status": "ok"
+      },
+      "full_document": {
+        "calls": 24,
+        "bytes": 109959,
+        "estimated_tokens": 36653,
+        "latency_ms": 1763.0297999999966,
+        "returned_ids": [
+          "commerce.audit",
+          "cross.checkout",
+          "cross.restricted",
+          "orchard.cache",
+          "orchard.pagination",
+          "orchard.retry",
+          "orchard.rollback",
+          "orchard.safety",
+          "orchard.stale",
+          "orchard.timeout",
+          "orchard.unicode",
+          "shared.logging"
+        ],
+        "status": "ok"
+      },
+      "relevant": {
+        "hits": 2,
+        "expected": 2,
+        "ratio": 1,
+        "missing": []
+      },
+      "full_document_relevant": {
+        "hits": 2,
+        "expected": 2,
+        "ratio": 1,
+        "missing": []
+      },
+      "mandatory_policy": {
+        "hits": 2,
+        "expected": 2,
+        "ratio": 1,
+        "missing": []
+      },
+      "stale_results": [],
+      "unauthorized_exposures": [],
+      "interface_match": true,
+      "expectation_failures": [],
+      "regressions": []
+    },
+    {
+      "id": "26",
+      "annotation": "Natural reconciliation synonyms expose the strict-term baseline gap.",
+      "scenario": "normal",
+      "input": {
+        "repo_id": "ledger",
+        "task": "compare money totals",
+        "source_revision": "e6d57d6b2a49abcda16d319ca42be61acbf5084b"
+      },
+      "expected": [
+        "ledger.reconcile"
+      ],
+      "mandatory": [
+        "commerce.audit",
+        "ledger.safety"
+      ],
+      "denied_record_ids": [
+        "orchard.safety",
+        "orchard.retry",
+        "orchard.cache",
+        "orchard.pagination",
+        "orchard.timeout",
+        "orchard.rollback",
+        "orchard.unicode",
+        "orchard.stale",
+        "orchard.old",
+        "orchard.disputed",
+        "studio.render",
+        "studio.palette",
+        "studio.export",
+        "cross.restricted",
+        "vault.secret",
+        "secretteam.rule"
+      ],
+      "service": {
+        "calls": 1,
+        "bytes": 2467,
+        "estimated_tokens": 823,
+        "latency_ms": 76.84410000000207,
+        "returned_ids": [
+          "commerce.audit",
+          "ledger.safety",
+          "ledger.reconcile"
+        ],
+        "status": "ok"
+      },
+      "mcp": {
+        "calls": 1,
+        "bytes": 2467,
+        "estimated_tokens": 823,
+        "latency_ms": 69.8498000000036,
+        "returned_ids": [
+          "commerce.audit",
+          "ledger.safety",
+          "ledger.reconcile"
+        ],
+        "status": "ok"
+      },
+      "full_document": {
+        "calls": 16,
+        "bytes": 73363,
+        "estimated_tokens": 24455,
+        "latency_ms": 1102.303899999999,
+        "returned_ids": [
+          "commerce.audit",
+          "cross.checkout",
+          "ledger.decimal",
+          "ledger.reconcile",
+          "ledger.refund",
+          "ledger.safety",
+          "ledger.settlement",
+          "shared.logging"
+        ],
+        "status": "ok"
+      },
+      "relevant": {
+        "hits": 1,
+        "expected": 1,
+        "ratio": 1,
+        "missing": []
+      },
+      "full_document_relevant": {
+        "hits": 1,
+        "expected": 1,
+        "ratio": 1,
+        "missing": []
+      },
+      "mandatory_policy": {
+        "hits": 2,
+        "expected": 2,
+        "ratio": 1,
+        "missing": []
+      },
+      "stale_results": [],
+      "unauthorized_exposures": [],
+      "interface_match": true,
+      "expectation_failures": [],
+      "regressions": []
+    },
+    {
+      "id": "27",
+      "annotation": "Natural export synonyms expose strict-term baseline misses.",
+      "scenario": "normal",
+      "input": {
+        "repo_id": "studio",
+        "task": "save a picture",
+        "source_revision": "e6d57d6b2a49abcda16d319ca42be61acbf5084b"
+      },
+      "expected": [
+        "studio.export"
+      ],
+      "mandatory": [],
+      "denied_record_ids": [
+        "commerce.audit",
+        "orchard.safety",
+        "ledger.safety",
+        "orchard.retry",
+        "orchard.cache",
+        "orchard.pagination",
+        "orchard.timeout",
+        "orchard.rollback",
+        "orchard.unicode",
+        "orchard.stale",
+        "orchard.old",
+        "orchard.disputed",
+        "ledger.settlement",
+        "ledger.reconcile",
+        "ledger.decimal",
+        "ledger.refund",
+        "cross.checkout",
+        "cross.restricted",
+        "vault.secret",
+        "secretteam.rule"
+      ],
+      "service": {
+        "calls": 1,
+        "bytes": 1459,
+        "estimated_tokens": 487,
+        "latency_ms": 69.01789999999892,
+        "returned_ids": [
+          "studio.export"
+        ],
+        "status": "ok"
+      },
+      "mcp": {
+        "calls": 1,
+        "bytes": 1459,
+        "estimated_tokens": 487,
+        "latency_ms": 67.94659999999567,
+        "returned_ids": [
+          "studio.export"
+        ],
+        "status": "ok"
+      },
+      "full_document": {
+        "calls": 8,
+        "bytes": 35977,
+        "estimated_tokens": 11993,
+        "latency_ms": 548.9746999999988,
+        "returned_ids": [
+          "shared.logging",
+          "studio.export",
+          "studio.palette",
+          "studio.render"
+        ],
+        "status": "ok"
+      },
+      "relevant": {
+        "hits": 1,
+        "expected": 1,
+        "ratio": 1,
+        "missing": []
+      },
+      "full_document_relevant": {
+        "hits": 1,
+        "expected": 1,
+        "ratio": 1,
+        "missing": []
+      },
+      "mandatory_policy": {
+        "hits": 0,
+        "expected": 0,
+        "ratio": null,
+        "missing": []
+      },
+      "stale_results": [],
+      "unauthorized_exposures": [],
+      "interface_match": true,
+      "expectation_failures": [],
+      "regressions": []
+    },
+    {
+      "id": "28",
+      "annotation": "Task and topic combined retain direct conjunctive matching.",
+      "scenario": "normal",
+      "input": {
+        "repo_id": "orchard",
+        "task": "Retry",
+        "source_revision": "e6d57d6b2a49abcda16d319ca42be61acbf5084b",
+        "topics": [
+          "idempotency"
+        ]
+      },
+      "expected": [
+        "orchard.retry",
+        "cross.checkout"
+      ],
+      "mandatory": [
+        "commerce.audit",
+        "orchard.safety"
+      ],
+      "denied_record_ids": [
+        "ledger.safety",
+        "ledger.settlement",
+        "ledger.reconcile",
+        "ledger.decimal",
+        "ledger.refund",
+        "studio.render",
+        "studio.palette",
+        "studio.export",
+        "vault.secret",
+        "secretteam.rule"
+      ],
+      "service": {
+        "calls": 1,
+        "bytes": 2925,
+        "estimated_tokens": 975,
+        "latency_ms": 69.47580000000016,
+        "returned_ids": [
+          "commerce.audit",
+          "orchard.safety",
+          "orchard.retry",
+          "cross.checkout"
+        ],
+        "status": "ok"
+      },
+      "mcp": {
+        "calls": 1,
+        "bytes": 2925,
+        "estimated_tokens": 975,
+        "latency_ms": 68.0940999999948,
+        "returned_ids": [
+          "commerce.audit",
+          "orchard.safety",
+          "orchard.retry",
+          "cross.checkout"
+        ],
+        "status": "ok"
+      },
+      "full_document": {
+        "calls": 24,
+        "bytes": 109959,
+        "estimated_tokens": 36653,
+        "latency_ms": 1715.4651000000013,
+        "returned_ids": [
+          "commerce.audit",
+          "cross.checkout",
+          "cross.restricted",
+          "orchard.cache",
+          "orchard.pagination",
+          "orchard.retry",
+          "orchard.rollback",
+          "orchard.safety",
+          "orchard.stale",
+          "orchard.timeout",
+          "orchard.unicode",
+          "shared.logging"
+        ],
+        "status": "ok"
+      },
+      "relevant": {
+        "hits": 2,
+        "expected": 2,
+        "ratio": 1,
+        "missing": []
+      },
+      "full_document_relevant": {
+        "hits": 2,
+        "expected": 2,
+        "ratio": 1,
+        "missing": []
+      },
+      "mandatory_policy": {
+        "hits": 2,
+        "expected": 2,
+        "ratio": 1,
+        "missing": []
+      },
+      "stale_results": [],
+      "unauthorized_exposures": [],
+      "interface_match": true,
+      "expectation_failures": [],
+      "regressions": []
+    },
+    {
+      "id": "29",
+      "annotation": "Path terms appended to strict query can suppress otherwise relevant direct matches.",
+      "scenario": "normal",
+      "input": {
+        "repo_id": "orchard",
+        "task": "Cache expiry",
+        "source_revision": "e6d57d6b2a49abcda16d319ca42be61acbf5084b",
+        "changed_paths": [
+          "src/cache.ts"
+        ]
+      },
+      "expected": [
+        "orchard.cache"
+      ],
+      "mandatory": [
+        "commerce.audit",
+        "orchard.safety"
+      ],
+      "denied_record_ids": [
+        "ledger.safety",
+        "ledger.settlement",
+        "ledger.reconcile",
+        "ledger.decimal",
+        "ledger.refund",
+        "studio.render",
+        "studio.palette",
+        "studio.export",
+        "vault.secret",
+        "secretteam.rule"
+      ],
+      "service": {
+        "calls": 1,
+        "bytes": 2454,
+        "estimated_tokens": 818,
+        "latency_ms": 69.59019999999873,
+        "returned_ids": [
+          "commerce.audit",
+          "orchard.safety",
+          "orchard.cache"
+        ],
+        "status": "ok"
+      },
+      "mcp": {
+        "calls": 1,
+        "bytes": 2454,
+        "estimated_tokens": 818,
+        "latency_ms": 69.07069999999658,
+        "returned_ids": [
+          "commerce.audit",
+          "orchard.safety",
+          "orchard.cache"
+        ],
+        "status": "ok"
+      },
+      "full_document": {
+        "calls": 24,
+        "bytes": 109959,
+        "estimated_tokens": 36653,
+        "latency_ms": 1791.5073000000048,
+        "returned_ids": [
+          "commerce.audit",
+          "cross.checkout",
+          "cross.restricted",
+          "orchard.cache",
+          "orchard.pagination",
+          "orchard.retry",
+          "orchard.rollback",
+          "orchard.safety",
+          "orchard.stale",
+          "orchard.timeout",
+          "orchard.unicode",
+          "shared.logging"
+        ],
+        "status": "ok"
+      },
+      "relevant": {
+        "hits": 1,
+        "expected": 1,
+        "ratio": 1,
+        "missing": []
+      },
+      "full_document_relevant": {
+        "hits": 1,
+        "expected": 1,
+        "ratio": 1,
+        "missing": []
+      },
+      "mandatory_policy": {
+        "hits": 2,
+        "expected": 2,
+        "ratio": 1,
+        "missing": []
+      },
+      "stale_results": [],
+      "unauthorized_exposures": [],
+      "interface_match": true,
+      "expectation_failures": [],
+      "regressions": []
+    },
+    {
+      "id": "30",
+      "annotation": "Explicit zero graph depth excludes checkout expansion.",
+      "scenario": "normal",
+      "input": {
+        "repo_id": "orchard",
+        "task": "Retry idempotency",
+        "source_revision": "e6d57d6b2a49abcda16d319ca42be61acbf5084b",
+        "depth": 0
+      },
+      "expected": [
+        "orchard.retry"
+      ],
+      "mandatory": [
+        "commerce.audit",
+        "orchard.safety"
+      ],
+      "denied_record_ids": [
+        "ledger.safety",
+        "ledger.settlement",
+        "ledger.reconcile",
+        "ledger.decimal",
+        "ledger.refund",
+        "studio.render",
+        "studio.palette",
+        "studio.export",
+        "vault.secret",
+        "secretteam.rule"
+      ],
+      "service": {
+        "calls": 1,
+        "bytes": 2515,
+        "estimated_tokens": 839,
+        "latency_ms": 72.00110000000132,
+        "returned_ids": [
+          "commerce.audit",
+          "orchard.safety",
+          "orchard.retry"
+        ],
+        "status": "ok"
+      },
+      "mcp": {
+        "calls": 1,
+        "bytes": 2515,
+        "estimated_tokens": 839,
+        "latency_ms": 69.96149999999761,
+        "returned_ids": [
+          "commerce.audit",
+          "orchard.safety",
+          "orchard.retry"
+        ],
+        "status": "ok"
+      },
+      "full_document": {
+        "calls": 24,
+        "bytes": 109959,
+        "estimated_tokens": 36653,
+        "latency_ms": 1735.3245000000024,
+        "returned_ids": [
+          "commerce.audit",
+          "cross.checkout",
+          "cross.restricted",
+          "orchard.cache",
+          "orchard.pagination",
+          "orchard.retry",
+          "orchard.rollback",
+          "orchard.safety",
+          "orchard.stale",
+          "orchard.timeout",
+          "orchard.unicode",
+          "shared.logging"
+        ],
+        "status": "ok"
+      },
+      "relevant": {
+        "hits": 1,
+        "expected": 1,
+        "ratio": 1,
+        "missing": []
+      },
+      "full_document_relevant": {
+        "hits": 1,
+        "expected": 1,
+        "ratio": 1,
+        "missing": []
+      },
+      "mandatory_policy": {
+        "hits": 2,
+        "expected": 2,
+        "ratio": 1,
+        "missing": []
+      },
+      "stale_results": [],
+      "unauthorized_exposures": [],
+      "interface_match": true,
+      "expectation_failures": [],
+      "regressions": []
+    },
+    {
+      "id": "31",
+      "annotation": "Two contradictory curated practices surface together without silent last-write-wins.",
+      "scenario": "conflict",
+      "input": {
+        "repo_id": "orchard",
+        "task": "consistency",
+        "source_revision": "e6d57d6b2a49abcda16d319ca42be61acbf5084b"
+      },
+      "expected": [
+        "orchard.choicea",
+        "orchard.choiceb"
+      ],
+      "mandatory": [
+        "commerce.audit",
+        "orchard.safety"
+      ],
+      "denied_record_ids": [
+        "ledger.safety",
+        "ledger.settlement",
+        "ledger.reconcile",
+        "ledger.decimal",
+        "ledger.refund",
+        "studio.render",
+        "studio.palette",
+        "studio.export",
+        "vault.secret",
+        "secretteam.rule"
+      ],
+      "service": {
+        "calls": 1,
+        "bytes": 3130,
+        "estimated_tokens": 1044,
+        "latency_ms": 100.16990000000078,
+        "returned_ids": [
+          "commerce.audit",
+          "orchard.safety",
+          "orchard.choicea",
+          "orchard.choiceb"
+        ],
+        "status": "ok"
+      },
+      "mcp": {
+        "calls": 1,
+        "bytes": 3130,
+        "estimated_tokens": 1044,
+        "latency_ms": 99.5031999999992,
+        "returned_ids": [
+          "commerce.audit",
+          "orchard.safety",
+          "orchard.choicea",
+          "orchard.choiceb"
+        ],
+        "status": "ok"
+      },
+      "full_document": {
+        "calls": 28,
+        "bytes": 129046,
+        "estimated_tokens": 43016,
+        "latency_ms": 3050.197,
+        "returned_ids": [
+          "commerce.audit",
+          "cross.checkout",
+          "cross.restricted",
+          "orchard.cache",
+          "orchard.choicea",
+          "orchard.choiceb",
+          "orchard.pagination",
+          "orchard.retry",
+          "orchard.rollback",
+          "orchard.safety",
+          "orchard.stale",
+          "orchard.timeout",
+          "orchard.unicode",
+          "shared.logging"
+        ],
+        "status": "ok"
+      },
+      "relevant": {
+        "hits": 2,
+        "expected": 2,
+        "ratio": 1,
+        "missing": []
+      },
+      "full_document_relevant": {
+        "hits": 2,
+        "expected": 2,
+        "ratio": 1,
+        "missing": []
+      },
+      "mandatory_policy": {
+        "hits": 2,
+        "expected": 2,
+        "ratio": 1,
+        "missing": []
+      },
+      "stale_results": [],
+      "unauthorized_exposures": [],
+      "interface_match": true,
+      "expectation_failures": [],
+      "regressions": []
+    },
+    {
+      "id": "32",
+      "annotation": "Stale mandatory policy remains visible and explicitly blocks planning.",
+      "scenario": "stale-policy",
+      "input": {
+        "repo_id": "orchard",
+        "task": "Cache expiry",
+        "source_revision": "e6d57d6b2a49abcda16d319ca42be61acbf5084b"
+      },
+      "expected": [
+        "orchard.cache"
+      ],
+      "mandatory": [
+        "commerce.audit",
+        "orchard.safety"
+      ],
+      "denied_record_ids": [
+        "ledger.safety",
+        "ledger.settlement",
+        "ledger.reconcile",
+        "ledger.decimal",
+        "ledger.refund",
+        "studio.render",
+        "studio.palette",
+        "studio.export",
+        "vault.secret",
+        "secretteam.rule"
+      ],
+      "service": {
+        "calls": 1,
+        "bytes": 2640,
+        "estimated_tokens": 880,
+        "latency_ms": 187.3515000000043,
+        "returned_ids": [
+          "commerce.audit",
+          "orchard.safety",
+          "orchard.cache"
+        ],
+        "status": "POLICY_REVIEW_REQUIRED"
+      },
+      "mcp": {
+        "calls": 1,
+        "bytes": 2640,
+        "estimated_tokens": 880,
+        "latency_ms": 172.6152000000002,
+        "returned_ids": [
+          "commerce.audit",
+          "orchard.safety",
+          "orchard.cache"
+        ],
+        "status": "POLICY_REVIEW_REQUIRED"
+      },
+      "full_document": {
+        "calls": 24,
+        "bytes": 110304,
+        "estimated_tokens": 36768,
+        "latency_ms": 2052.3556000000026,
+        "returned_ids": [
+          "commerce.audit",
+          "cross.checkout",
+          "cross.restricted",
+          "orchard.cache",
+          "orchard.pagination",
+          "orchard.retry",
+          "orchard.rollback",
+          "orchard.safety",
+          "orchard.stale",
+          "orchard.timeout",
+          "orchard.unicode",
+          "shared.logging"
+        ],
+        "status": "ok"
+      },
+      "relevant": {
+        "hits": 1,
+        "expected": 1,
+        "ratio": 1,
+        "missing": []
+      },
+      "full_document_relevant": {
+        "hits": 1,
+        "expected": 1,
+        "ratio": 1,
+        "missing": []
+      },
+      "mandatory_policy": {
+        "hits": 2,
+        "expected": 2,
+        "ratio": 1,
+        "missing": []
+      },
+      "stale_results": [
+        {
+          "id": "orchard.safety",
+          "freshness": "needs_revalidation"
+        }
+      ],
+      "unauthorized_exposures": [],
+      "interface_match": true,
+      "expectation_failures": [],
+      "regressions": []
+    },
+    {
+      "id": "33",
+      "annotation": "Disputed policy is represented by a blocking issue rather than a normative result.",
+      "scenario": "disputed-policy",
+      "input": {
+        "repo_id": "orchard",
+        "task": "Cache expiry",
+        "source_revision": "e6d57d6b2a49abcda16d319ca42be61acbf5084b"
+      },
+      "expected": [
+        "orchard.cache"
+      ],
+      "mandatory": [
+        "commerce.audit",
+        "orchard.safety"
+      ],
+      "denied_record_ids": [
+        "ledger.safety",
+        "ledger.settlement",
+        "ledger.reconcile",
+        "ledger.decimal",
+        "ledger.refund",
+        "studio.render",
+        "studio.palette",
+        "studio.export",
+        "vault.secret",
+        "secretteam.rule"
+      ],
+      "service": {
+        "calls": 1,
+        "bytes": 2022,
+        "estimated_tokens": 674,
+        "latency_ms": 72.91069999999308,
+        "returned_ids": [
+          "commerce.audit",
+          "orchard.cache"
+        ],
+        "status": "POLICY_REVIEW_REQUIRED"
+      },
+      "mcp": {
+        "calls": 1,
+        "bytes": 2022,
+        "estimated_tokens": 674,
+        "latency_ms": 82.70980000001146,
+        "returned_ids": [
+          "commerce.audit",
+          "orchard.cache"
+        ],
+        "status": "POLICY_REVIEW_REQUIRED"
+      },
+      "full_document": {
+        "calls": 22,
+        "bytes": 100489,
+        "estimated_tokens": 33497,
+        "latency_ms": 1730.6103000000003,
+        "returned_ids": [
+          "commerce.audit",
+          "cross.checkout",
+          "cross.restricted",
+          "orchard.cache",
+          "orchard.pagination",
+          "orchard.retry",
+          "orchard.rollback",
+          "orchard.stale",
+          "orchard.timeout",
+          "orchard.unicode",
+          "shared.logging"
+        ],
+        "status": "ok"
+      },
+      "relevant": {
+        "hits": 1,
+        "expected": 1,
+        "ratio": 1,
+        "missing": []
+      },
+      "full_document_relevant": {
+        "hits": 1,
+        "expected": 1,
+        "ratio": 1,
+        "missing": []
+      },
+      "mandatory_policy": {
+        "hits": 2,
+        "expected": 2,
+        "ratio": 1,
+        "missing": []
+      },
+      "stale_results": [],
+      "unauthorized_exposures": [],
+      "interface_match": true,
+      "expectation_failures": [],
+      "regressions": []
+    },
+    {
+      "id": "34",
+      "annotation": "Mandatory-policy result overflow produces explicit bounded references.",
+      "scenario": "normal",
+      "input": {
+        "repo_id": "orchard",
+        "task": "Cache expiry",
+        "source_revision": "e6d57d6b2a49abcda16d319ca42be61acbf5084b",
+        "max_results": 1
+      },
+      "expected": [],
+      "mandatory": [
+        "commerce.audit",
+        "orchard.safety"
+      ],
+      "denied_record_ids": [
+        "ledger.safety",
+        "ledger.settlement",
+        "ledger.reconcile",
+        "ledger.decimal",
+        "ledger.refund",
+        "studio.render",
+        "studio.palette",
+        "studio.export",
+        "vault.secret",
+        "secretteam.rule"
+      ],
+      "service": {
+        "calls": 1,
+        "bytes": 1153,
+        "estimated_tokens": 385,
+        "latency_ms": 72.56970000000001,
+        "returned_ids": [],
+        "status": "CONTEXT_BUDGET_EXCEEDED"
+      },
+      "mcp": {
+        "calls": 1,
+        "bytes": 1153,
+        "estimated_tokens": 385,
+        "latency_ms": 70.36209999999846,
+        "returned_ids": [],
+        "status": "CONTEXT_BUDGET_EXCEEDED"
+      },
+      "full_document": {
+        "calls": 24,
+        "bytes": 109959,
+        "estimated_tokens": 36653,
+        "latency_ms": 1852.0193,
+        "returned_ids": [
+          "commerce.audit",
+          "cross.checkout",
+          "cross.restricted",
+          "orchard.cache",
+          "orchard.pagination",
+          "orchard.retry",
+          "orchard.rollback",
+          "orchard.safety",
+          "orchard.stale",
+          "orchard.timeout",
+          "orchard.unicode",
+          "shared.logging"
+        ],
+        "status": "ok"
+      },
+      "relevant": {
+        "hits": 0,
+        "expected": 0,
+        "ratio": null,
+        "missing": []
+      },
+      "full_document_relevant": {
+        "hits": 0,
+        "expected": 0,
+        "ratio": null,
+        "missing": []
+      },
+      "mandatory_policy": {
+        "hits": 2,
+        "expected": 2,
+        "ratio": 1,
+        "missing": []
+      },
+      "stale_results": [],
+      "unauthorized_exposures": [],
+      "interface_match": true,
+      "expectation_failures": [],
+      "regressions": []
+    },
+    {
+      "id": "35",
+      "annotation": "Unregistered vault identity is denied without leaking private record metadata.",
+      "scenario": "normal",
+      "input": {
+        "repo_id": "vault",
+        "task": "DENIED_VAULT_TITLE",
+        "source_revision": null
+      },
+      "expected": [],
+      "mandatory": [],
+      "denied_record_ids": [
+        "shared.logging",
+        "commerce.audit",
+        "orchard.safety",
+        "ledger.safety",
+        "orchard.retry",
+        "orchard.cache",
+        "orchard.pagination",
+        "orchard.timeout",
+        "orchard.rollback",
+        "orchard.unicode",
+        "orchard.stale",
+        "orchard.old",
+        "orchard.disputed",
+        "ledger.settlement",
+        "ledger.reconcile",
+        "ledger.decimal",
+        "ledger.refund",
+        "studio.render",
+        "studio.palette",
+        "studio.export",
+        "cross.checkout",
+        "cross.restricted",
+        "vault.secret",
+        "secretteam.rule"
+      ],
+      "service": {
+        "calls": 1,
+        "bytes": 92,
+        "estimated_tokens": 31,
+        "latency_ms": 77.81099999999424,
+        "returned_ids": [],
+        "status": "NOT_FOUND"
+      },
+      "mcp": {
+        "calls": 1,
+        "bytes": 92,
+        "estimated_tokens": 31,
+        "latency_ms": 149.54869999999937,
+        "returned_ids": [],
+        "status": "NOT_FOUND"
+      },
+      "full_document": {
+        "calls": 1,
+        "bytes": 92,
+        "estimated_tokens": 31,
+        "latency_ms": 83.72260000000097,
+        "returned_ids": [],
+        "status": "NOT_FOUND"
+      },
+      "relevant": {
+        "hits": 0,
+        "expected": 0,
+        "ratio": null,
+        "missing": []
+      },
+      "full_document_relevant": {
+        "hits": 0,
+        "expected": 0,
+        "ratio": null,
+        "missing": []
+      },
+      "mandatory_policy": {
+        "hits": 0,
+        "expected": 0,
+        "ratio": null,
+        "missing": []
+      },
+      "stale_results": [],
+      "unauthorized_exposures": [],
+      "interface_match": true,
+      "expectation_failures": [],
+      "regressions": []
+    },
+    {
+      "id": "36",
+      "annotation": "Missing index returns an explicit failure rather than successful empty knowledge.",
+      "scenario": "no-index",
+      "input": {
+        "repo_id": "orchard",
+        "task": "Cache expiry",
+        "source_revision": "e6d57d6b2a49abcda16d319ca42be61acbf5084b"
+      },
+      "expected": [],
+      "mandatory": [],
+      "denied_record_ids": [
+        "ledger.safety",
+        "ledger.settlement",
+        "ledger.reconcile",
+        "ledger.decimal",
+        "ledger.refund",
+        "studio.render",
+        "studio.palette",
+        "studio.export",
+        "vault.secret",
+        "secretteam.rule"
+      ],
+      "service": {
+        "calls": 1,
+        "bytes": 140,
+        "estimated_tokens": 47,
+        "latency_ms": 0.13079999999899883,
+        "returned_ids": [],
+        "status": "INDEX_UNAVAILABLE"
+      },
+      "mcp": {
+        "calls": 1,
+        "bytes": 140,
+        "estimated_tokens": 47,
+        "latency_ms": 0.23240000000805594,
+        "returned_ids": [],
+        "status": "INDEX_UNAVAILABLE"
+      },
+      "full_document": {
+        "calls": 1,
+        "bytes": 140,
+        "estimated_tokens": 47,
+        "latency_ms": 0.11080000000947621,
+        "returned_ids": [],
+        "status": "INDEX_UNAVAILABLE"
+      },
+      "relevant": {
+        "hits": 0,
+        "expected": 0,
+        "ratio": null,
+        "missing": []
+      },
+      "full_document_relevant": {
+        "hits": 0,
+        "expected": 0,
+        "ratio": null,
+        "missing": []
+      },
+      "mandatory_policy": {
+        "hits": 0,
+        "expected": 0,
+        "ratio": null,
+        "missing": []
+      },
+      "stale_results": [],
+      "unauthorized_exposures": [],
+      "interface_match": true,
+      "expectation_failures": [],
+      "regressions": []
+    }
+  ],
+  "publication_note": "Raw envelopes and temporary checkout paths omitted; full output remains reproducible in ignored runtime storage. Fixture annotations unchanged; raw fixture SHA can differ with checkout line endings."
+}

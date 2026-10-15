@@ -69,9 +69,9 @@ it('invalidates cursors after access changes without returning removed metadata'
 
 it('honors the serialized envelope byte budget and fails explicitly when one entry cannot fit', async () => {
   for (const repo of paths.config.repositories) repo.name = 'x'.repeat(300);
-  paths.config.budgets.maxBytes = 800;
+  paths.config.budgets.maxBytes = 1000; // Includes the added estimator metadata and continuation.
   const result = await listRepositories(paths);
-  expect(Buffer.byteLength(JSON.stringify({ ok: true, data: result }))).toBeLessThanOrEqual(800);
+  expect(Buffer.byteLength(JSON.stringify({ ok: true, data: result }))).toBeLessThanOrEqual(1000);
   expect(result.next_cursor).not.toBeNull();
   paths.config.budgets.maxBytes = 100;
   await expect(listRepositories(paths)).rejects.toMatchObject({ code: 'CONTEXT_BUDGET_EXCEEDED' });

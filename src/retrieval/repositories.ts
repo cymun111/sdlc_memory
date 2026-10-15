@@ -7,6 +7,7 @@ import type { ResolvedPaths } from '../core/config.js';
 import { DomainError } from '../capture/candidate-store.js';
 import { parseKnowledgeMarkdown } from '../validation/record.js';
 import { provenance, publicKnowledgeSnapshotSchema, checkoutDriftSchema, type KnowledgeSnapshotMetadata, type CheckoutDrift } from '../indexing/provenance.js';
+import { measured, fits, limits } from './budget.js';
 
 export const repositoryListInput = z.object({
   query: z.string().trim().max(200).optional(),
@@ -26,6 +27,7 @@ export const repositoryListOutput = z.object({
   index_generation: z.string().nullable(),
   index_status: z.enum(['available', 'unavailable']),
   knowledge_snapshot: publicKnowledgeSnapshotSchema.nullable(), checkout_drift: checkoutDriftSchema.nullable(), knowledge_revision: z.string().nullable()
+  ,estimated_tokens:z.number().int().nonnegative(),estimator_name:z.string()
 });
 type Entry = z.infer<typeof repositoryEntry>;
 const digest = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
@@ -92,10 +94,10 @@ export async function listRepositories(paths: ResolvedPaths, request: unknown = 
   }
   const result = (selected: Entry[]) => {
     const next = offset + selected.length;
-    return { repositories: selected, next_cursor: next < filtered.length ? Buffer.from(JSON.stringify({ snapshot, offset: next })).toString('base64url') : null, index_generation: generation, index_status: status, knowledge_snapshot, checkout_drift, knowledge_revision };
+    return measured({ repositories: selected, next_cursor: next < filtered.length ? Buffer.from(JSON.stringify({ snapshot, offset: next })).toString('base64url') : null, index_generation: generation, index_status: status, knowledge_snapshot, checkout_drift, knowledge_revision });
   };
   const selected = filtered.slice(offset, offset + input.limit);
-  while (Buffer.byteLength(JSON.stringify({ ok: true, data: result(selected) }), 'utf8') > paths.config.budgets.maxBytes) {
+  while (!fits(result(selected),limits(paths.config,{}))) {
     if (selected.length <= 1) throw new DomainError('CONTEXT_BUDGET_EXCEEDED', 'Repository metadata cannot fit the configured response byte budget');
     selected.pop();
   }

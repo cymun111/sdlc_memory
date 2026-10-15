@@ -1,6 +1,6 @@
 # Multi-repository retrieval evaluation (AEF-005)
 
-The versioned fictional baseline measures the current strict-AND FTS matcher, mandatory policies, and authorized curated graph traversal. It does not change ranking. SDLC Command onboarding can use these deterministic gates before accepting an adapter or retrieval change; AEF-009 and AEF-010 must compare the same task annotations when improving matching and budgets.
+The versioned fictional evaluation measures deterministic weighted lexical matching, mandatory policies, and authorized curated graph traversal. The frozen AEF-005 strict-AND report remains unchanged for comparison. AEF-009 and AEF-010 use the same fixture annotations and relevance oracle; SDLC Command onboarding can reuse these local gates before accepting an adapter.
 
 Run from the repository root with the installed Node/npm dependencies and Git:
 
@@ -17,7 +17,7 @@ The evaluator writes full raw responses and measurements to ignored `.runtime/re
 
 Expected relevant IDs are hand annotations. Mandatory IDs derive from the fixture's declared policies and applicability, independently of service results. Denied IDs, titles, summaries, team/repository sentinels, and source paths are checked across complete serialized service, MCP, and full-document envelopes. An annotation cannot declare an inaccessible record relevant or mark an unrelated ID as an accepted baseline miss.
 
-Each task invokes `KnowledgeService.taskContext` and an actual SDK client/server pair through `InMemoryTransport`. The same task then loads every applicable, authorized, verified document through real `get` calls with a 32 KB body cap. All fixture bodies are below that cap. The manifest provides this baseline's record list: discovery/navigation overhead is not charged. Full-document loading does not filter on task words, so it is a reference coverage/cost baseline, not another ranking algorithm or an agent simulation. There is no hidden search prefilter.
+Each task invokes `KnowledgeService.taskContext` and an actual SDK client/server pair through `InMemoryTransport`. The same task then loads every applicable, authorized, verified document through real `get` calls with a 32 KB body cap, following every generation-bound page until complete. Complete-envelope budgets can require multiple calls even when a body is below that cap. The manifest supplies authorized IDs: discovery/navigation overhead is not charged. Full-document loading has no task-word prefilter; it is a coverage/cost reference, not an agent simulation.
 
 The curated orchard-to-checkout-to-ledger chain also tests task applicability: orchard must not receive ledger-only records even at graph depth two. A cross-repo record deliberately references vault evidence and a private relationship to test structural projection. Historical records, empty results, topics, changed paths, Unicode, denied lookup, explicit index failure, and mandatory-policy overflow have independent annotations.
 
@@ -30,9 +30,21 @@ The curated orchard-to-checkout-to-ledger chain also tests task applicability: o
 - Bytes count serialized UTF-8 `{ok,data}` envelopes, summed over full-document reads. They exclude JSON-RPC framing and MCP's duplicate text representation. Estimated tokens use `ceil(bytes/3)` per task observation; full-document estimates apply to the aggregate bytes for that task. They are not model tokenizer measurements.
 - Latency is one sequential sample per case and strategy. Fixture setup is excluded. Service runs before MCP before full-document loading; caches, Git subprocess startup, CPU, OS, and concurrent tests affect it. Timings are reported without CI thresholds or production speed claims.
 
-The command exits nonzero for unexpected baseline record changes, missing policy references, missing full-document oracle records, wrong statuses/freshness/conflict outcomes, budget violations, unauthorized exposure, or interface mismatches. Known misses in cases 25, 26, 27, and 29 are pinned explicitly in `baseline_missing`. Improving those cases requires a reviewed fixture/baseline update; the relevance oracle must not be reduced to make results pass. The 90% quality target is reported separately and is currently unmet. No latency or percentage byte-reduction gate is imposed.
+The command exits nonzero for unexpected/missing relevant records, missing policy references, missing full-document oracle records, wrong statuses/freshness/conflict outcomes, budget violations, unauthorized exposure, or interface mismatches. Historical `baseline_missing` annotations remain in the unchanged fixture, but no longer exempt a miss: every expected relevant record is now required. The preserved strict-term report supplies per-case recovered/regressed comparisons. The 90% quality target is met on this corpus. No latency or percentage byte-reduction gate is imposed.
 
-## Measured baseline
+## AEF-009/010 measurements
+
+The [new per-case report](evaluations/aef-009-010-v1-results.json) measures 34/34 relevant pairs (100%), 54/54 mandatory-policy references (100%, including explicit blockers), and 34/34 complete full-document relevant pairs. All five former missing pairs across tasks 25/26/27/29 are recovered, with no per-case regressions, unauthorized exposures or service/MCP differences. Three uncertain/stale observations remain labeled. Fixture annotations and the old report are unchanged; raw fixture hashes differ across LF/CRLF checkouts.
+
+| Strategy, all 36 tasks | Calls | UTF-8 payload bytes | Estimated tokens |
+| --- | ---: | ---: | ---: |
+| Service task context | 36 | 76,349 | 25,465 |
+| MCP task context | 36 | 76,349 | 25,465 |
+| Complete full-document pages | 660 | 3,011,350 | 1,003,794 |
+
+Summary context uses approximately 97.46% fewer logical payload bytes than complete document loading on this verbose synthetic corpus, while matching its annotated completeness. Its payload is larger than the old strict-term context because it now returns the recovered records. Full-document costs also increase with complete-envelope pagination and repeated metadata; compare completeness and accounting, not a claimed speedup. Generation/provenance values can change exact byte totals. See [ranking/continuation semantics](ranked-progressive-retrieval.md) and [TDD evidence](aef-009-010-tdd.md).
+
+## Preserved AEF-005 baseline
 
 The recorded run has 29/34 relevant pairs (**85.29%**, below the PRD's 90% target), 54/54 mandatory-policy references (**100%**), and 34/34 full-document relevant pairs. It detects zero unauthorized metadata exposures and zero service/MCP differences. Three returned uncertain/stale observations remain explicitly labeled. These results describe this fictional corpus only.
 
@@ -55,4 +67,4 @@ The committed [per-case raw measurements](evaluations/aef-005-v1-results.json) r
 
 ## Limits
 
-This is a small curated synthetic corpus with intentionally verbose reference bodies; full-document costs depend on that choice. It is not representative production traffic, repeated statistical benchmarking, arbitrary-prose information-flow analysis, real owner approval, or proof of native-agent behavior. The SDK in-memory transport is exercised here; real stdio is covered separately by `npm run smoke:mcp`. Shared HTTP and authentication remain AEF-016 work. Passing the baseline gates does not satisfy the missing 90% quality target or establish SDLC Command integration.
+This is a small curated synthetic corpus with intentionally verbose reference bodies; full-document costs depend on that choice. It is not representative production traffic, repeated statistical benchmarking, arbitrary-prose information-flow analysis, real owner approval, or proof of native-agent behavior. The SDK in-memory transport is exercised here; real stdio is covered separately by `npm run smoke:mcp`. Shared HTTP and authentication remain AEF-016 work. Passing these local quality gates does not establish SDLC Command integration or native-agent context consumption.

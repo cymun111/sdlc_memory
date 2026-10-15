@@ -6,6 +6,7 @@ import { z } from 'zod';
 import type { ResolvedPaths, RegisteredRepo } from '../core/config.js';
 import { DomainError } from '../capture/candidate-store.js';
 import { optionalProvenance } from '../indexing/provenance.js';
+import { measured, fits, limits } from './budget.js';
 
 const sections = ['files', 'packages', 'entry_points', 'commands', 'tests', 'languages'] as const;
 const evidence = z.object({ path: z.string().refine(allowed, 'Unsafe evidence path'), blob_hash: z.string().regex(/^[a-f0-9]{40,64}$/) });
@@ -147,7 +148,7 @@ export async function getRepositoryMap(paths: ResolvedPaths, request: unknown) {
   }
   const page = selected.slice(offset, offset + input.limit);
   const metadata = await optionalProvenance(paths.knowledgeRoot, paths.runtimeRoot);
-  const result = () => ({ ...metadata, repo_id: repo.id, source_revision: map.source_revision, extractor_version: map.extractor_version, generated_at: map.generated_at, freshness: { source_available: sourceAvailable, head_changed: head !== null && head !== map.source_revision, dirty_worktree: dirty, head_revision: head }, truncated: map.truncated, warnings: map.warnings, summary, counts, items: page, next_cursor: offset + page.length < selected.length ? Buffer.from(JSON.stringify({ snapshot, offset: offset + page.length })).toString('base64url') : null });
-  while (Buffer.byteLength(JSON.stringify({ ok: true, data: result() })) > paths.config.budgets.maxBytes) { if (page.length <= 1) throw new DomainError('CONTEXT_BUDGET_EXCEEDED', 'Map page exceeds byte budget; narrow the section or increase the configured budget'); page.pop(); }
+  const result = () => measured({ ...metadata, repo_id: repo.id, source_revision: map.source_revision, extractor_version: map.extractor_version, generated_at: map.generated_at, freshness: { source_available: sourceAvailable, head_changed: head !== null && head !== map.source_revision, dirty_worktree: dirty, head_revision: head }, truncated: map.truncated, warnings: map.warnings, summary, counts, items: page, next_cursor: offset + page.length < selected.length ? Buffer.from(JSON.stringify({ snapshot, offset: offset + page.length })).toString('base64url') : null });
+  while (!fits(result(),limits(paths.config,{}))) { if (page.length <= 1) throw new DomainError('CONTEXT_BUDGET_EXCEEDED', 'Map page exceeds envelope budgets; narrow the section or increase configured budgets'); page.pop(); }
   return result();
 }
