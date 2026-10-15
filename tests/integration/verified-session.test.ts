@@ -119,3 +119,12 @@ it('AEF-012 adapter install is idempotent, version-checked and independently ins
   client.mode='wrong-version';await expect(configure(paths,{action:'install'})).rejects.toMatchObject({code:'SOURCE_UNAVAILABLE'});
   await expect(configure(paths,{action:'invalid'})).rejects.toMatchObject({code:'VALIDATION_ERROR'});
 });
+it('AEF-012 rechecks policy context after acknowledgement before task release',async()=>{
+  const original=KnowledgeService.prototype.taskContext;let calls=0;
+  vi.spyOn(KnowledgeService.prototype,'taskContext').mockImplementation(async function(this:KnowledgeService,input){const context=await original.call(this,input);return ++calls>=3?{...context,status:'POLICY_REVIEW_REQUIRED'}:context;});
+  expect((await start()).state).toBe('blocked-context');expect(client.phases).toEqual(['consume-context']);
+});
+it('AEF-012 preserves an incomplete adapter installation owned by another principal',async()=>{
+  const installed=await (sessions as any).configureSessionAdapter(paths,{action:'install'});await rm(installed.path);paths.config.principal='other-principal';
+  await expect((sessions as any).configureSessionAdapter(paths,{action:'uninstall'})).rejects.toMatchObject({code:'FORBIDDEN'});
+});
