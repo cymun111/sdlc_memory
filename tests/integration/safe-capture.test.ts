@@ -151,3 +151,10 @@ it('AEF-011 rejects unsafe repository identifiers in retained update journals',a
 it('AEF-011 retries bounded transient SQLite initialization contention',async()=>{
   fault.busy=2;const receipt=await submit();expect(receipt.state).toBe('candidate');expect(fault.busy).toBe(0);expect(await listCandidates(paths)).toHaveLength(1);
 });
+it('AEF-011 stops after bounded initialization retries and returns a safe retryable conflict',async()=>{
+  fault.busy=100;await expect(submit()).rejects.toMatchObject({code:'CONFLICT'});expect(fault.busy).toBe(96);
+});
+it('AEF-011 rejects a conflicting reused record ID without poisoning durable recovery',async()=>{
+  const receipt=await submit();await expect(submitCandidate(paths,{repoId:'alpha',idempotencyKey:'different-key',markdown:markdown('Different content under the same record ID.')})).rejects.toMatchObject({code:'CONFLICT'});
+  expect(await listCandidates(paths)).toHaveLength(1);expect((await submit()).receipt_id).toBe(receipt.receipt_id);
+});
