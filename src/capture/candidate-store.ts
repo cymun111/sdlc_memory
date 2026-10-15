@@ -5,6 +5,7 @@ import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import type { RegisteredRepo, ResolvedPaths } from '../core/config.js';
 import { parseKnowledgeMarkdown } from '../validation/record.js';
+import { screenCapture, safePath, safeDirectory, readCapture } from './safety.js';
 
 export class DomainError extends Error {
   constructor(readonly code: string, message: string) { super(message); }
@@ -20,7 +21,11 @@ export interface CandidateReceipt {
 }
 
 function openLedger(paths: ResolvedPaths): DatabaseSync {
-  mkdirSync(paths.runtimeRoot, { recursive: true });
+  safeDirectory(paths.runtimeRoot, paths.runtimeRoot);
+  for(const suffix of ['', '-wal', '-shm']) {
+    const filename=path.join(paths.runtimeRoot,'receipts.sqlite'+suffix); safePath(filename,paths.runtimeRoot);
+    if(existsSync(filename) && !lstatSync(filename).isFile()) throw new DomainError('FORBIDDEN','Ledger must be a regular file.');
+  }
   const database = new DatabaseSync(path.join(paths.runtimeRoot, 'receipts.sqlite'));
   database.exec(`PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 10000;
     CREATE TABLE IF NOT EXISTS submissions (
@@ -99,6 +104,7 @@ function recoverUpdates(database: DatabaseSync, paths: ResolvedPaths): void {
 }
 
 export async function updateCandidate(paths: ResolvedPaths, input: { repoId: string; id: string; expectedHash: string; markdown: string }): Promise<CandidateReceipt> {
+  screenCapture(input.markdown);
   const repo = resolveRepo(paths, input.repoId);
   if (!/^[a-f0-9]{64}$/.test(input.expectedHash)) throw new DomainError('VALIDATION_ERROR', 'expected_hash must be a lowercase SHA-256 hash');
   if (Buffer.byteLength(input.markdown, 'utf8') > 65536) throw new DomainError('VALIDATION_ERROR', 'Candidate exceeds 65536 UTF-8 bytes');
@@ -150,7 +156,7 @@ function resolveRepo(paths: ResolvedPaths, repoId: string): RegisteredRepo {
 function candidatePath(paths: ResolvedPaths, repoId: string, id: string): string {
   const candidateRoot = path.resolve(paths.knowledgeRoot, 'candidates');
   const directory = path.join(candidateRoot, repoId);
-  mkdirSync(directory, { recursive: true });
+  safeDirectory(directory,paths.knowledgeRoot);
   const realRoot = realpathSync(candidateRoot);
   const realDirectory = realpathSync(directory);
   if (realRoot !== candidateRoot || !realDirectory.startsWith(`${realRoot}${path.sep}`)) {
@@ -160,8 +166,9 @@ function candidatePath(paths: ResolvedPaths, repoId: string, id: string): string
 }
 
 function writeCandidate(filename: string, markdown: string, expectedHash: string): void {
+  safePath(filename,path.dirname(filename));
   if (existsSync(filename)) {
-    const existingHash = createHash('sha256').update(readFileSync(filename)).digest('hex');
+    const existingHash = createHash('sha256').update(readCapture(filename,path.dirname(filename))).digest('hex');
     if (existingHash !== expectedHash) throw new DomainError('CONFLICT', `Candidate ID already exists with different content: ${path.basename(filename, '.md')}`);
     return;
   }
@@ -187,6 +194,7 @@ function receiptFromRow(row: Record<string, unknown>, duplicate: boolean): Candi
 }
 
 export async function submitCandidate(paths: ResolvedPaths, input: { repoId: string; idempotencyKey: string; markdown: string; submitter?: string }): Promise<CandidateReceipt> {
+  screenCapture(input.markdown);
   const repo = resolveRepo(paths, input.repoId);
   if (!input.idempotencyKey.trim() || input.idempotencyKey.length > 200) throw new DomainError('VALIDATION_ERROR', 'Idempotency key must contain 1-200 characters');
   const record = await parseKnowledgeMarkdown(input.markdown, paths.knowledgeRoot);
@@ -262,11 +270,12 @@ export async function listCandidates(paths: ResolvedPaths, repoId?: string): Pro
   const results: Array<{ id: string; repo_id: string; hash: string; path: string; title: string; summary: string }> = [];
   for (const repo of repos) {
     const directory = path.join(paths.knowledgeRoot, 'candidates', repo.id);
+    safePath(directory,paths.knowledgeRoot);
     if (!existsSync(directory)) continue;
     for (const entry of readdirSync(directory, { withFileTypes: true })) {
       if (!entry.isFile() || entry.isSymbolicLink() || !entry.name.endsWith('.md')) continue;
       const filename = path.join(directory, entry.name);
-      const markdown = readFileSync(filename, 'utf8');
+      const markdown = readCapture(filename,paths.knowledgeRoot);
       const record = await parseKnowledgeMarkdown(markdown, paths.knowledgeRoot);
       results.push({ id: record.id, repo_id: repo.id, hash: createHash('sha256').update(markdown).digest('hex'), path: filename, title: record.title, summary: record.summary });
     }
