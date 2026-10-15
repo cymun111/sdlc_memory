@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "verified_at": "2026-10-15T00:21:45.121Z",
+  "platform": "win32",
+  "node": "v24.16.0",
+  "fixture": "Fresh isolated Git repository, spaced path, fictional policy and explicit fictional candidate; no real project assertions.",
+  "no_learning": {
+    "session_id": "bc6b701d-d0bc-43c6-b901-1a5b6a27a700",
+    "state": "completed-no-learning",
+    "source_revision": "84d1ea9bafe8b38d71b57a06d04a7eb21bbd87a3",
+    "knowledge_revision": "unversioned:55b08efa7ef689632e9e5ceaec3cf00260e4156f8c4d54050b7bc1444e134cc4",
+    "index_generation": "551b8dda-4278-4aeb-b08c-4f818c9fd496",
+    "result_ids": [
+      "fictional.cache-policy"
+    ],
+    "adapter": {
+      "id": "codex-exec-v1",
+      "client_version": "codex-cli 0.162.0-alpha.17.2",
+      "real_client_verified": true,
+      "transport": "stdin-json/output-schema"
+    },
+    "delivery": {
+      "consumed": true,
+      "acknowledgement_verified": true,
+      "acknowledged_at": "2026-10-15T00:21:26.631Z",
+      "client_turn_completed": true
+    },
+    "completion_hash": "238f4231adcf15d891c97d8252aa32e99fa11ac098f121b84f4f2d812d7a435b",
+    "attempts": 1,
+    "capture_attempts": 1
+  },
+  "learning": {
+    "session_id": "cb1e03d8-894f-4268-ab90-6785de85f3f9",
+    "state": "completed-candidate-submitted",
+    "source_revision": "84d1ea9bafe8b38d71b57a06d04a7eb21bbd87a3",
+    "knowledge_revision": "unversioned:55b08efa7ef689632e9e5ceaec3cf00260e4156f8c4d54050b7bc1444e134cc4",
+    "index_generation": "551b8dda-4278-4aeb-b08c-4f818c9fd496",
+    "result_ids": [
+      "fictional.cache-policy"
+    ],
+    "adapter": {
+      "id": "codex-exec-v1",
+      "client_version": "codex-cli 0.162.0-alpha.17.2",
+      "real_client_verified": true,
+      "transport": "stdin-json/output-schema"
+    },
+    "delivery": {
+      "consumed": true,
+      "acknowledgement_verified": true,
+      "acknowledged_at": "2026-10-15T00:21:37.647Z",
+      "client_turn_completed": true
+    },
+    "completion_hash": "bced5d448e7e3eb8a5aa5cedaad4c0b9143ebd97569725b8915cc13c2656f814",
+    "attempts": 1,
+    "capture_attempts": 1
+  },
+  "replay_candidate_count": 1,
+  "source_worktree_unchanged": true,
+  "unrelated_settings_preserved": true,
+  "limitations": [
+    "Two separate read-only Codex exec invocations per task; acknowledgement proves protocol consumption, not internal reasoning.",
+    "No global/native hook edits or SDLC Command wiring; generated MCP templates remain separate."
+  ]
+}

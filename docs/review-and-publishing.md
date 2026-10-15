@@ -2,7 +2,7 @@
 
 The intended lifecycle is candidate intake, owner review, and publication through a protected knowledge-repository branch. New submissions must not publish themselves or alter existing policy. Rejection should retain a reason; disputes and supersession must preserve history.
 
-Local candidate submission, inspection, expected-hash approval, and rejection are implemented. Local approval changes the knowledge worktree and refreshes its index; it does not create a Git commit, protected-branch merge, or GitHub PR. Shared publishing and comprehensive multi-process review recovery remain unfinished.
+Local candidate submission, inspection, expected-hash approval, and owner-only rejection are implemented. [Safe capture](safe-capture-and-sessions.md) adds bounded secret-screened intake, durable creation/update/review journals, retained version/rejection history and cooperative process tests. Local approval changes the knowledge worktree and refreshes its index; it does not create a Git commit, protected-branch merge, or GitHub PR. Shared publication, hostile-filesystem race protection and power-loss recovery remain outside the demonstrated local scope.
 
 Local conflict report inspection and owner-only expected-hash resolution/rejection are also implemented. See [conflicts and policies](conflicts-and-policies.md) for CLI commands, historical inspection, policy blockers, state ownership and recovery limits. Clearing a report does not remove curated contradiction edges or modify published policy.
 
