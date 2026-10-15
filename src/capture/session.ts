@@ -93,6 +93,11 @@ async function run(paths:ResolvedPaths,receipt:SessionReceipt,launcher?:string):
   const expected={schema_version:1,session_id:receipt.session_id,context_digest:receipt.context_digest,index_generation:current.index_generation,records:current.results.map(item=>({id:item.id,summary:item.summary}))};
   if(!parsed.success || JSON.stringify(parsed.data)!==JSON.stringify(expected) || !consumed.turn_completed){receipt.state='invalid-context-acknowledgement';save(paths,receipt);return receipt;}
   receipt.state='context-acknowledged';receipt.delivery={consumed:true,acknowledgement_verified:true,acknowledged_at:now(),client_turn_completed:true};save(paths,receipt);
+  try {
+    const refreshed=contextOutput.parse(await new KnowledgeService(paths).taskContext({repo_id:repo.id,task:receipt.task,source_revision:receipt.source_revision,expected_generation:current.index_generation}));
+    const head=execFileSync('git',['-C',repo.path,'rev-parse','HEAD'],{encoding:'utf8',stdio:['ignore','pipe','ignore']}).trim();
+    if(refreshed.status!=='ok' || hash(JSON.stringify(refreshed))!==receipt.context_digest || head!==receipt.source_revision)throw new Error();
+  }catch{receipt.state='blocked-context';save(paths,receipt);return receipt;}
   const execution=launch(paths,receipt,command,'execute-task');
   if('state' in execution){receipt.state=execution.state;save(paths,receipt);return receipt;}
   if(!execution.turn_completed || !completion.safeParse(execution.parsed).success){receipt.state='malformed-output';save(paths,receipt);return receipt;}
@@ -124,6 +129,7 @@ export async function configureSessionAdapter(paths:ResolvedPaths,input:{action:
   safePath(target,paths.runtimeRoot);safePath(owner,paths.runtimeRoot);
   const body=existsSync(target)?readCapture(target,paths.runtimeRoot):null;
   const ownership=existsSync(owner)?z.object({schema_version:z.literal(1),principal:z.string(),content_hash:z.string().regex(/^[a-f0-9]{64}$/)}).strict().parse(JSON.parse(readCapture(owner,paths.runtimeRoot))):null;
+  if(ownership && ownership.principal!==paths.config.principal)throw new DomainError('FORBIDDEN','Adapter installation belongs to another principal.');
   if(body && (!ownership || ownership.principal!==paths.config.principal || hash(body)!==ownership.content_hash))throw new DomainError('CONFLICT','Adapter configuration is not owned or changed externally; preserve it for review.');
   if(input.action==='status')return {state:body?'installed':'uninstalled',path:target,adapter:adapterId};
   if(input.action==='uninstall') {
