@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
-import { createHash, randomUUID } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { stringify } from 'yaml';
 import type { ResolvedPaths } from '../core/config.js';
@@ -14,8 +14,6 @@ import { safeDirectory, safePath, readCapture, screenCapture } from './safety.js
 function git(repoPath: string, args: string[]): string {
   return execFileSync('git', ['-C', repoPath, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
 }
-
-function sha256(content: string): string { return createHash('sha256').update(content).digest('hex'); }
 
 function frontMatterEnd(markdown: string): number {
   const index = markdown.replace(/\r\n/g, '\n').indexOf('\n---', 4);
@@ -79,17 +77,6 @@ function verifyEvidence(paths: ResolvedPaths, record: KnowledgeRecord): void {
       throw new DomainError('SOURCE_UNAVAILABLE', `Cannot verify source evidence: ${relativePath}`);
     }
   }
-}
-
-function archiveCandidate(paths: ResolvedPaths, candidatePath: string, id: string, state: 'published'|'rejected', reason: string|null = null): string {
-  const original=readCapture(candidatePath,paths.knowledgeRoot);
-  const archiveRoot = path.join(path.dirname(candidatePath),'history',id,sha256(original));
-  safeDirectory(archiveRoot,paths.knowledgeRoot);
-  const destination = path.join(archiveRoot,'candidate.md');
-  safePath(destination,paths.knowledgeRoot);
-  writeFileSync(path.join(archiveRoot,'decision.json'),JSON.stringify({schema_version:1,id,state,reason,content_hash:sha256(original),owner:paths.config.owner,occurred_at:new Date().toISOString()})+'\n',{flag:'wx',mode:0o600,flush:true});
-  renameSync(candidatePath, destination);
-  return destination;
 }
 
 export async function inspectCandidate(paths: ResolvedPaths, id: string, repoId?: string) {
