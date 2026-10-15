@@ -87,3 +87,8 @@ it('AEF-011 rejects unauthorized rejection without changing candidate history',a
   await expect(rejectCandidate(paths,{id:receipt.candidate_id,expectedHash:receipt.content_hash,reason:'Unauthorized review'})).rejects.toMatchObject({code:'FORBIDDEN'});
   expect(await readFile(receipt.candidate_path,'utf8')).toBe(markdown());
 });
+it('AEF-011 preserves rejected-content identity across new submission keys',async()=>{
+  const receipt=await submit();await rejectCandidate(paths,{id:receipt.candidate_id,expectedHash:receipt.content_hash,reason:'Fictional rejection'});
+  const replay=await submitCandidate(paths,{repoId:'alpha',idempotencyKey:'new-key',markdown:markdown()});
+  expect(replay.state).toBe('rejected');expect(replay.receipt_id).toBe(receipt.receipt_id);expect(await listCandidates(paths,'alpha')).toEqual([]);
+});
