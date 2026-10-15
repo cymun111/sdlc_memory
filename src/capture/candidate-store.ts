@@ -1,10 +1,12 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, renameSync, writeFileSync, rmSync, lstatSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, renameSync, writeFileSync, rmSync, lstatSync, linkSync } from 'node:fs';
+import { z } from 'zod';
 import { isDeepStrictEqual } from 'node:util';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import type { RegisteredRepo, ResolvedPaths } from '../core/config.js';
 import { parseKnowledgeMarkdown } from '../validation/record.js';
+import { screenCapture, safePath, safeDirectory, readCapture } from './safety.js';
 
 export class DomainError extends Error {
   constructor(readonly code: string, message: string) { super(message); }
@@ -20,9 +22,27 @@ export interface CandidateReceipt {
 }
 
 function openLedger(paths: ResolvedPaths): DatabaseSync {
-  mkdirSync(paths.runtimeRoot, { recursive: true });
-  const database = new DatabaseSync(path.join(paths.runtimeRoot, 'receipts.sqlite'));
-  database.exec(`PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 10000;
+  for(let attempt=0;attempt<4;attempt++) {
+    try{return openLedgerAttempt(paths);}catch(error){
+      const failure=error as {errcode?:number;code?:string;path?:string};
+      const busy=failure.code==='ERR_SQLITE_ERROR' && failure.errcode!==undefined && [5,6].includes(failure.errcode&255);
+      const vanishedSidecar=failure.code==='ENOENT' && /receipts\.sqlite-(wal|shm)$/.test(failure.path??'');
+      if(!busy && !vanishedSidecar)throw error;
+      if(attempt===3)throw new DomainError('CONFLICT','Capture storage is busy; retry the same request after active writers finish.');
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0,25*2**attempt);
+    }
+  }
+  throw new DomainError('CONFLICT','Capture storage is unavailable.');
+}
+function openLedgerAttempt(paths:ResolvedPaths):DatabaseSync {
+  safeDirectory(paths.runtimeRoot, paths.runtimeRoot);
+  for(const suffix of ['', '-wal', '-shm']) {
+    const filename=path.join(paths.runtimeRoot,'receipts.sqlite'+suffix); safePath(filename,paths.runtimeRoot);
+    if(existsSync(filename) && !lstatSync(filename).isFile()) throw new DomainError('FORBIDDEN','Ledger must be a regular file.');
+  }
+  const database = new DatabaseSync(path.join(paths.runtimeRoot, 'receipts.sqlite'),{timeout:10000});
+  try {
+  database.exec(`PRAGMA busy_timeout = 10000; PRAGMA journal_mode = WAL;
     CREATE TABLE IF NOT EXISTS submissions (
       idempotency_key TEXT PRIMARY KEY,
       repo_id TEXT NOT NULL,
@@ -44,7 +64,6 @@ function openLedger(paths: ResolvedPaths): DatabaseSync {
       evidence_json TEXT NOT NULL,
       created_at TEXT NOT NULL
     );`);
-  try {
     database.exec('BEGIN IMMEDIATE');
     const columns = database.prepare('PRAGMA table_info(submissions)').all();
     if (!columns.some((column) => column.name === 'submission_hash')) {
@@ -55,7 +74,11 @@ function openLedger(paths: ResolvedPaths): DatabaseSync {
       content_hash TEXT NOT NULL, markdown TEXT NOT NULL, candidate_path TEXT NOT NULL,
       PRIMARY KEY (repo_id, candidate_id)
     );`);
+    database.exec(`CREATE TABLE IF NOT EXISTS candidate_creates (repo_id TEXT NOT NULL, candidate_id TEXT NOT NULL, markdown TEXT NOT NULL, content_hash TEXT NOT NULL, PRIMARY KEY(repo_id,candidate_id));
+      CREATE TABLE IF NOT EXISTS candidate_transitions (repo_id TEXT NOT NULL, candidate_id TEXT NOT NULL, payload TEXT NOT NULL, PRIMARY KEY(repo_id,candidate_id));`);
+    recoverCreates(database,paths);
     recoverUpdates(database, paths);
+    recoverTransitions(database,paths);
     database.exec('COMMIT');
     return database;
   } catch (error) {
@@ -70,8 +93,9 @@ function hashMarkdown(markdown: string): string {
 }
 
 function safeExistingCandidate(paths: ResolvedPaths, repoId: string, id: string): string {
-  if (!/^[a-z0-9]+(?:[.-][a-z0-9]+)*$/.test(id)) throw new DomainError('VALIDATION_ERROR', 'Invalid candidate ID');
+  if (![repoId,id].every(value=>/^[a-z0-9]+(?:[.-][a-z0-9]+)*$/.test(value))) throw new DomainError('VALIDATION_ERROR', 'Invalid candidate identity');
   const filename = path.join(paths.knowledgeRoot, 'candidates', repoId, `${id}.md`);
+  safePath(filename,paths.knowledgeRoot);
   if (!existsSync(filename)) throw new DomainError('NOT_FOUND', 'Pending candidate not found');
   if (!lstatSync(filename).isFile() || realpathSync(filename) !== filename) throw new DomainError('FORBIDDEN', 'Candidate path must not resolve through a symlink');
   return filename;
@@ -83,12 +107,13 @@ function recoverUpdates(database: DatabaseSync, paths: ResolvedPaths): void {
   for (const row of database.prepare('SELECT * FROM candidate_updates').all()) {
     const filename = safeExistingCandidate(paths, String(row.repo_id), String(row.candidate_id));
     if (filename !== row.candidate_path) throw new DomainError('CONFLICT', 'Pending update path changed');
-    const current = hashMarkdown(readFileSync(filename, 'utf8'));
+    const current = hashMarkdown(readCapture(filename, paths.knowledgeRoot));
     if (current !== row.expected_hash && current !== row.content_hash) throw new DomainError('CONFLICT', 'Pending update conflicts with an external candidate edit');
     if (current !== row.content_hash) {
       const temporary = `${filename}.${randomUUID()}.tmp`;
       try {
         writeFileSync(temporary, String(row.markdown), { flag: 'wx', mode: 0o600, flush: true });
+        if(hashMarkdown(readCapture(safeExistingCandidate(paths,String(row.repo_id),String(row.candidate_id)),paths.knowledgeRoot))!==row.expected_hash) throw new DomainError('CONFLICT','Candidate changed after replacement staging.');
         renameSync(temporary, filename);
       } finally { rmSync(temporary, { force: true }); }
     }
@@ -99,6 +124,7 @@ function recoverUpdates(database: DatabaseSync, paths: ResolvedPaths): void {
 }
 
 export async function updateCandidate(paths: ResolvedPaths, input: { repoId: string; id: string; expectedHash: string; markdown: string }): Promise<CandidateReceipt> {
+  screenCapture(input.markdown);
   const repo = resolveRepo(paths, input.repoId);
   if (!/^[a-f0-9]{64}$/.test(input.expectedHash)) throw new DomainError('VALIDATION_ERROR', 'expected_hash must be a lowercase SHA-256 hash');
   if (Buffer.byteLength(input.markdown, 'utf8') > 65536) throw new DomainError('VALIDATION_ERROR', 'Candidate exceeds 65536 UTF-8 bytes');
@@ -121,12 +147,15 @@ export async function updateCandidate(paths: ResolvedPaths, input: { repoId: str
     const rows = database.prepare('SELECT * FROM submissions WHERE repo_id = ? AND candidate_id = ?').all(repo.id, input.id);
     if (!rows.length) throw new DomainError('NOT_FOUND', 'Candidate has no submission receipt');
     if (rows.some((row) => row.state !== 'accepted')) throw new DomainError('CONFLICT', 'Only accepted pending candidates may be updated');
-    const current = hashMarkdown(readFileSync(safeExistingCandidate(paths, repo.id, input.id), 'utf8'));
+    const currentMarkdown=readCapture(safeExistingCandidate(paths,repo.id,input.id),paths.knowledgeRoot);
+    const current = hashMarkdown(currentMarkdown);
     if (current !== input.expectedHash || rows.some((row) => row.content_hash !== current || row.candidate_path !== filename)) {
       throw new DomainError('CONFLICT', 'Candidate changed or its receipt is inconsistent; inspect it again');
     }
     const row = rows[0]!;
     if (hash !== current) {
+      const history=path.join(paths.knowledgeRoot,'candidates',repo.id,'history',input.id,'versions');
+      safeDirectory(history,paths.knowledgeRoot);writeCandidate(path.join(history,current+'.md'),currentMarkdown,current);
       database.prepare('INSERT INTO candidate_updates (repo_id, candidate_id, expected_hash, content_hash, markdown, candidate_path) VALUES (?, ?, ?, ?, ?, ?)')
         .run(repo.id, input.id, current, hash, input.markdown, filename);
     }
@@ -148,9 +177,10 @@ function resolveRepo(paths: ResolvedPaths, repoId: string): RegisteredRepo {
 }
 
 function candidatePath(paths: ResolvedPaths, repoId: string, id: string): string {
+  if(![repoId,id].every(value=>/^[a-z0-9]+(?:[.-][a-z0-9]+)*$/.test(value))) throw new DomainError('VALIDATION_ERROR','Invalid candidate identity.');
   const candidateRoot = path.resolve(paths.knowledgeRoot, 'candidates');
   const directory = path.join(candidateRoot, repoId);
-  mkdirSync(directory, { recursive: true });
+  safeDirectory(directory,paths.knowledgeRoot);
   const realRoot = realpathSync(candidateRoot);
   const realDirectory = realpathSync(directory);
   if (realRoot !== candidateRoot || !realDirectory.startsWith(`${realRoot}${path.sep}`)) {
@@ -160,19 +190,77 @@ function candidatePath(paths: ResolvedPaths, repoId: string, id: string): string
 }
 
 function writeCandidate(filename: string, markdown: string, expectedHash: string): void {
+  safePath(filename,path.dirname(filename));
   if (existsSync(filename)) {
-    const existingHash = createHash('sha256').update(readFileSync(filename)).digest('hex');
+    const existingHash = createHash('sha256').update(readCapture(filename,path.dirname(filename))).digest('hex');
     if (existingHash !== expectedHash) throw new DomainError('CONFLICT', `Candidate ID already exists with different content: ${path.basename(filename, '.md')}`);
     return;
   }
   const temporary = `${filename}.${randomUUID()}.tmp`;
-  writeFileSync(temporary, markdown, { flag: 'wx', mode: 0o600 });
-  try { renameSync(temporary, filename); }
+  writeFileSync(temporary, markdown, { flag: 'wx', mode: 0o600, flush:true });
+  try { safePath(filename,path.dirname(filename)); linkSync(temporary, filename); }
   catch (error) {
     if (!existsSync(filename)) throw error;
-    const existingHash = createHash('sha256').update(readFileSync(filename)).digest('hex');
+    const existingHash = createHash('sha256').update(readCapture(filename,path.dirname(filename))).digest('hex');
     if (existingHash !== expectedHash) throw new DomainError('CONFLICT', 'Concurrent candidate creation had different content');
+  } finally {rmSync(temporary,{force:true});}
+}
+
+function recoverCreates(database: DatabaseSync, paths: ResolvedPaths): void {
+  for(const row of database.prepare('SELECT * FROM candidate_creates ORDER BY repo_id,candidate_id').all()) {
+    const markdown=String(row.markdown); screenCapture(markdown);
+    if(hashMarkdown(markdown)!==row.content_hash) throw new DomainError('CONFLICT','Creation journal content changed.');
+    const filename=candidatePath(paths,String(row.repo_id),String(row.candidate_id));
+    writeCandidate(filename,markdown,String(row.content_hash));
+    database.prepare("UPDATE submissions SET state='accepted' WHERE repo_id=? AND candidate_id=? AND state='queued'").run(String(row.repo_id),String(row.candidate_id));
+    database.prepare('DELETE FROM candidate_creates WHERE repo_id=? AND candidate_id=?').run(String(row.repo_id),String(row.candidate_id));
   }
+}
+
+const transitionSchema=z.object({repo_id:z.string().regex(/^[a-z0-9]+(?:[.-][a-z0-9]+)*$/),id:z.string().regex(/^[a-z0-9]+(?:[.-][a-z0-9]+)*$/),hash:z.string().regex(/^[a-f0-9]{64}$/),original:z.string(),state:z.enum(['published','rejected']),reason:z.string().nullable(),destination:z.string().nullable(),published:z.string().nullable(),owner:z.string(),occurred_at:z.iso.datetime()}).strict();
+type Transition=z.infer<typeof transitionSchema>;
+function archiveFor(paths: ResolvedPaths, operation: Transition) {return path.join(paths.knowledgeRoot,'candidates',operation.repo_id,'history',operation.id,operation.hash,'candidate.md');}
+function recoverTransitions(database: DatabaseSync,paths: ResolvedPaths): void {
+  for(const row of database.prepare('SELECT * FROM candidate_transitions ORDER BY repo_id,candidate_id').all()) {
+    const operation=transitionSchema.parse(JSON.parse(String(row.payload)));
+    if(operation.repo_id!==row.repo_id || operation.id!==row.candidate_id || hashMarkdown(operation.original)!==operation.hash) throw new DomainError('CONFLICT','Review journal identity changed.');
+    const original=candidatePath(paths,operation.repo_id,operation.id);
+    const archive=archiveFor(paths,operation);
+    if(existsSync(original) && hashMarkdown(readCapture(original,paths.knowledgeRoot))!==operation.hash) throw new DomainError('CONFLICT','Review conflicts with an external candidate edit.');
+    if(!existsSync(original) && !existsSync(archive)) throw new DomainError('CONFLICT','Review source and retained history are unavailable.');
+    if(operation.state==='published') {
+      if(!operation.destination || !operation.published) throw new DomainError('CONFLICT','Publication journal is incomplete.');
+      safePath(operation.destination,path.join(paths.knowledgeRoot,'knowledge'));
+      safeDirectory(path.dirname(operation.destination),paths.knowledgeRoot);
+      writeCandidate(operation.destination,operation.published,hashMarkdown(operation.published));
+    }
+    safeDirectory(path.dirname(archive),paths.knowledgeRoot);
+    writeCandidate(archive,operation.original,operation.hash);
+    const decision=JSON.stringify({schema_version:1,id:operation.id,state:operation.state,reason:operation.reason,content_hash:operation.hash,owner:operation.owner,occurred_at:operation.occurred_at})+'\n';
+    writeCandidate(path.join(path.dirname(archive),'decision.json'),decision,hashMarkdown(decision));
+    if(existsSync(original)) {
+      if(hashMarkdown(readCapture(original,paths.knowledgeRoot))!==operation.hash) throw new DomainError('CONFLICT','Candidate changed before review removal.');
+      rmSync(original);
+    }
+    database.prepare("UPDATE submissions SET state=?,candidate_path=?,rejection_reason=? WHERE repo_id=? AND candidate_id=? AND state IN ('accepted','queued')").run(operation.state,archive,operation.reason,operation.repo_id,operation.id);
+    database.prepare('DELETE FROM candidate_transitions WHERE repo_id=? AND candidate_id=?').run(operation.repo_id,operation.id);
+  }
+}
+
+export function transitionCandidate(paths: ResolvedPaths,input: {repoId:string;id:string;expectedHash:string;original:string;state:'published'|'rejected';reason?:string;destination?:string;published?:string}): string {
+  const operation=transitionSchema.parse({repo_id:input.repoId,id:input.id,hash:input.expectedHash,original:input.original,state:input.state,reason:input.reason??null,destination:input.destination??null,published:input.published??null,owner:paths.config.owner,occurred_at:new Date().toISOString()});
+  const database=openLedger(paths);
+  try {
+    database.exec('BEGIN IMMEDIATE');
+    const original=safeExistingCandidate(paths,input.repoId,input.id);
+    const rows=database.prepare('SELECT * FROM submissions WHERE repo_id=? AND candidate_id=?').all(input.repoId,input.id);
+    if(!rows.length || rows.some(row=>row.state!=='accepted' || row.content_hash!==input.expectedHash) || hashMarkdown(readCapture(original,paths.knowledgeRoot))!==input.expectedHash)
+      throw new DomainError('CONFLICT','Candidate or receipt changed before review.');
+    database.prepare('INSERT INTO candidate_transitions VALUES (?,?,?)').run(input.repoId,input.id,JSON.stringify(operation));
+    database.exec('COMMIT');
+    database.exec('BEGIN IMMEDIATE');recoverTransitions(database,paths);database.exec('COMMIT');
+    return archiveFor(paths,operation);
+  }catch(error){if(database.isTransaction) database.exec('ROLLBACK');throw error;}finally{database.close();}
 }
 
 function receiptFromRow(row: Record<string, unknown>, duplicate: boolean): CandidateReceipt {
@@ -187,6 +275,7 @@ function receiptFromRow(row: Record<string, unknown>, duplicate: boolean): Candi
 }
 
 export async function submitCandidate(paths: ResolvedPaths, input: { repoId: string; idempotencyKey: string; markdown: string; submitter?: string }): Promise<CandidateReceipt> {
+  screenCapture(input.markdown);
   const repo = resolveRepo(paths, input.repoId);
   if (!input.idempotencyKey.trim() || input.idempotencyKey.length > 200) throw new DomainError('VALIDATION_ERROR', 'Idempotency key must contain 1-200 characters');
   const record = await parseKnowledgeMarkdown(input.markdown, paths.knowledgeRoot);
@@ -208,13 +297,16 @@ export async function submitCandidate(paths: ResolvedPaths, input: { repoId: str
       row = existingKey;
       duplicate = true;
     } else {
-      const existingContent = database.prepare('SELECT * FROM submissions WHERE repo_id = ? AND content_hash = ? AND state != ? LIMIT 1').get(repo.id, hash, 'rejected') as Record<string, unknown> | undefined;
+      const existingContent = database.prepare('SELECT * FROM submissions WHERE repo_id = ? AND content_hash = ? ORDER BY created_at,idempotency_key LIMIT 1').get(repo.id, hash) as Record<string, unknown> | undefined;
       if (existingContent) {
         row = { ...existingContent, idempotency_key: input.idempotencyKey };
         database.prepare(`INSERT INTO submissions (idempotency_key, repo_id, candidate_id, receipt_id, content_hash, candidate_path, submitter, state, created_at)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(input.idempotencyKey, repo.id, String(existingContent.candidate_id), String(existingContent.receipt_id), hash, String(existingContent.candidate_path), input.submitter ?? paths.config.principal, String(existingContent.state), String(existingContent.created_at));
         duplicate = true;
       } else {
+        const identity=database.prepare('SELECT candidate_id FROM submissions WHERE repo_id=? AND candidate_id=? LIMIT 1').get(repo.id,record.id);
+        if(identity)throw new DomainError('CONFLICT','Candidate ID already belongs to different content; update the pending candidate or use a new ID.');
+        if(existsSync(destination) && hashMarkdown(readCapture(destination,paths.knowledgeRoot))!==hash)throw new DomainError('CONFLICT','Candidate destination contains unrelated content.');
         const receiptId = randomUUID();
         const createdAt = new Date().toISOString();
         database.prepare(`INSERT INTO submissions (idempotency_key, repo_id, candidate_id, receipt_id, content_hash, candidate_path, submitter, state, created_at)
@@ -223,9 +315,13 @@ export async function submitCandidate(paths: ResolvedPaths, input: { repoId: str
       }
     }
     database.prepare('UPDATE submissions SET submission_hash = ? WHERE idempotency_key = ? AND submission_hash IS NULL').run(hash, input.idempotencyKey);
-    if (row.state !== 'published' && row.state !== 'rejected' && row.content_hash === hash) writeCandidate(String(row.candidate_path), input.markdown, hash);
-    database.prepare("UPDATE submissions SET state = 'accepted' WHERE receipt_id = ? AND state = 'queued'").run(String(row.receipt_id));
+    if(row.state==='accepted') {
+      const filename=safeExistingCandidate(paths,repo.id,String(row.candidate_id));
+      if(filename!==row.candidate_path || hashMarkdown(readCapture(filename,paths.knowledgeRoot))!==row.content_hash) throw new DomainError('CONFLICT','Pending candidate no longer matches its receipt.');
+    }
+    if(row.state==='queued') database.prepare('INSERT INTO candidate_creates VALUES (?,?,?,?)').run(repo.id,record.id,input.markdown,hash);
     database.exec('COMMIT');
+    database.exec('BEGIN IMMEDIATE');recoverCreates(database,paths);database.exec('COMMIT');
   } catch (error) {
     if (database.isTransaction) database.exec('ROLLBACK');
     throw error;
@@ -262,11 +358,12 @@ export async function listCandidates(paths: ResolvedPaths, repoId?: string): Pro
   const results: Array<{ id: string; repo_id: string; hash: string; path: string; title: string; summary: string }> = [];
   for (const repo of repos) {
     const directory = path.join(paths.knowledgeRoot, 'candidates', repo.id);
+    safePath(directory,paths.knowledgeRoot);
     if (!existsSync(directory)) continue;
     for (const entry of readdirSync(directory, { withFileTypes: true })) {
       if (!entry.isFile() || entry.isSymbolicLink() || !entry.name.endsWith('.md')) continue;
       const filename = path.join(directory, entry.name);
-      const markdown = readFileSync(filename, 'utf8');
+      const markdown = readCapture(filename,paths.knowledgeRoot);
       const record = await parseKnowledgeMarkdown(markdown, paths.knowledgeRoot);
       results.push({ id: record.id, repo_id: repo.id, hash: createHash('sha256').update(markdown).digest('hex'), path: filename, title: record.title, summary: record.summary });
     }

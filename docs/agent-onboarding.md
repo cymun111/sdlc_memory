@@ -11,5 +11,8 @@ Bootstrap agents should retrieve relevant knowledge before planning, check evide
 | Adapter | Transport | Context delivery | Completion capture | Verification |
 | --- | --- | --- | --- | --- |
 | Codex | stdio template | Not verified | Not implemented | Unverified |
+| Codex `codex-exec-v1` session adapter | stdin JSON / constrained final output | Verified acknowledgement before task release | Durable learning/no-learning receipts | Windows, Codex `0.162.0-alpha.17.2`; [evidence](evaluations/aef-012-client-verification.json) |
 | Claude Code | stdio template | Not verified | Not implemented | Unverified |
 | Cursor | stdio template | Not verified | Not implemented | Unverified |
+
+The session adapter is separate from native MCP templates. See [safe capture and verified sessions](safe-capture-and-sessions.md) for commands, read-only scope, acknowledgement limits, retries and owned installation/removal.

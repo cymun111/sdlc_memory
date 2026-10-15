@@ -35,8 +35,8 @@ IDs are renumbered by priority at the user's explicit request. The mapping below
 | AEF-008 | Repeatable onboarding and readiness receipts | P1 | Done (local manual stdio) | AEF-001 through AEF-004, AEF-006, AEF-007 |
 | AEF-009 | Deterministic task matching and ranking | P1 | Done | AEF-005 |
 | AEF-010 | Progressive retrieval and complete budgets | P1 | Done | AEF-003, AEF-004, AEF-005 |
-| AEF-011 | Safe candidate persistence and recovery | P1 | Planned | AEF-001, AEF-002 |
-| AEF-012 | Verified task context and completion capture | P1 | Planned | AEF-008, AEF-010, AEF-011 |
+| AEF-011 | Safe candidate persistence and recovery | P1 | Done | AEF-001, AEF-002 |
+| AEF-012 | Verified task context and completion capture | P1 | Done | AEF-008, AEF-010, AEF-011 |
 | AEF-013 | Candidate inspection through MCP | P1 | Planned | AEF-001, AEF-011 |
 | AEF-014 | SDLC Command integration and migration gate | P1 | Planned | AEF-005 through AEF-013 |
 | AEF-015 | Governed Git publication and lifecycle | P2 | Planned | AEF-004, AEF-011, AEF-013 |
@@ -248,7 +248,8 @@ IDs are renumbered by priority at the user's explicit request. The mapping below
 
 ## AEF-011: Safe candidate persistence and recovery
 
-**Priority / status:** P1 / Planned.
+**Priority / status:** P1 / Done.
+**Completion scope:** [Safe capture and recovery](safe-capture-and-sessions.md) enforce bounded UTF-8/schema/secret checks, canonical regular-file boundaries, committed creation/update/review journals, expected-content recovery, cooperative process serialization and versionable candidate/rejection history. [TDD evidence](aef-011-012-tdd.md) separates real process/junction checks from injected interruptions. Portable filesystem checks do not establish protection against hostile concurrent directory replacement or power loss; HTTP/shared publication remain separate work.
 **Outcome:** Automatic intake is safe, durable, and recoverable.
 
 **Acceptance criteria:**
@@ -266,7 +267,8 @@ IDs are renumbered by priority at the user's explicit request. The mapping below
 
 ## AEF-012: Verified task context and completion capture
 
-**Priority / status:** P1 / Planned.
+**Priority / status:** P1 / Done.
+**Completion scope:** [Codex `codex-exec-v1`](safe-capture-and-sessions.md) verifies explicit context acknowledgement before read-only task release, rechecks policy/source/generation, validates completion, and persists learning/no-learning outcomes with bounded restart retries. Owned runtime installation/removal preserves unrelated settings. [Real Windows client evidence](evaluations/aef-012-client-verification.json) covers Codex `0.162.0-alpha.17.2`, spaced paths, both outcomes and replay; [test-first evidence](aef-011-012-tdd.md) labels launcher simulations separately. This is a two-process read-only session protocol, not native/global hooks, proof of internal reasoning, native MCP-template compatibility or actual SDLC Command wiring.
 **Outcome:** A supported agent consumes context before planning and emits a durable completion.
 
 **Acceptance criteria:**
@@ -439,5 +441,7 @@ Historical evidence is preserved from the previous tracker and establishes local
 | AEF-008 | New | 2026-10-13 | [Onboarding service](../src/onboarding/service.ts), [contracts](../src/onboarding/contracts.ts), facade/readiness and CLI | [TDD checkpoints](aef-008-tdd.md), [27 onboarding cases](../tests/integration/onboarding.test.ts); 172 tests, build/typecheck/fixtures/stdio and scoped coverage gates passed | Manual local stdio only; no native-client edits/context consumption/receiving-system wiring; includes pending AEF-007 and excludes separate unmerged AEF-006 |
 | AEF-009 | AEF-003 | 2026-10-14 | [Ranking](../src/retrieval/ranking.ts), retrieval service | [TDD checkpoints](aef-009-010-tdd.md), [unchanged-oracle results](evaluations/aef-009-010-v1-results.json); 34/34 relevant, 54/54 policies, zero detected leaks/mismatches/regressions; build/typecheck/fixtures/SDK stdio and scoped coverage passed | Explicit bounded lexical alternatives; fictional corpus; no production relevance, native-agent or receiving-system verification |
 | AEF-010 | AEF-005 | 2026-10-14 | [Envelope/cursor helpers](../src/retrieval/budget.ts), service/MCP/facade, discovery/maps | [Progressive tests](../tests/integration/ranked-progressive.test.ts), [TDD checkpoints](aef-009-010-tdd.md); full document pages preserve 34/34 relevant pairs; 95.75% statements, 92.24% branches, 95.90% functions, 100% lines scoped coverage | Rejects generation drift; logical envelope excludes protocol framing; minimal errors can exceed tiny budgets; no retained-generation reads or actual SDLC Command wiring |
+| AEF-011 | New | 2026-10-14 | [Safe I/O](../src/capture/safety.ts), [candidate journals](../src/capture/candidate-store.ts), [review](../src/capture/review.ts) | [TDD checkpoints](aef-011-012-tdd.md), 33 capture safety cases including six real concurrent processes, Windows junctions and injected interruption/replacement checks; 256 total tests, build/typecheck/fixtures/SDK stdio passed | Cooperative local writers and controlled recovery; no hostile-directory-race/power-loss/distributed guarantee; recovered publication requires index refresh; no protected Git publication |
+| AEF-012 | AEF-009 | 2026-10-14 | [Session adapter](../src/capture/session.ts), [contracts](../src/capture/session-contracts.ts), CLI start/resume/finish and runtime install/uninstall | [24 session cases](../tests/integration/verified-session.test.ts), [real Codex verification](evaluations/aef-012-client-verification.json), [reproducible script](../scripts/verify-session-client.ts); aggregate capture/session coverage 88.43% statements, 81.49% branches, 94.44% functions, 96.58% lines | Codex `0.162.0-alpha.17.2`, Windows, read-only two-process acknowledgement protocol; other clients/native templates/global hooks and SDLC Command wiring remain unverified |
 
 For each completion add implementation/test links, verification date/commands, measured results where applicable, client/transport versions, and limitations. External checks remain explicit blockers; documentation/configuration generation is not completion evidence.

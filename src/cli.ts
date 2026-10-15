@@ -5,7 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { submitCandidate, pendingSubmissionCount, listCandidates } from './capture/candidate-store.js';
 import { approveCandidate, inspectCandidate, rejectCandidate } from './capture/review.js';
-import { finishSession, startSession } from './capture/session.js';
+import { finishSession, startSession, resumeSession, configureSessionAdapter } from './capture/session.js';
 import { parseRootOptions, registerRepository, resolvePaths, saveLocalConfig } from './core/config.js';
 import { validateKnowledgeTree } from './validation/validate-tree.js';
 import { buildActiveGeneration } from './indexing/build-index.js';
@@ -183,14 +183,19 @@ async function main(): Promise<void> {
       break;
     }
     case 'session': {
-      if (args[0] === 'start') {
+      if (args[0] === 'install' || args[0] === 'uninstall' || args[0] === 'status') {
+        console.log(JSON.stringify(await configureSessionAdapter(paths,{action:args[0]}),null,2));
+      } else if(args[0]==='resume') {
+        const result=await resumeSession(paths,requireFlag(args,'--session'),flag(args,'--launcher'));console.log(JSON.stringify(result,null,2));
+        if(!result.state.startsWith('completed-'))process.exitCode=2;
+      } else if (args[0] === 'start') {
         const launcher = flag(args, '--launcher');
         const result = await startSession(paths, { repoId: requireFlag(args, '--repo'), agent: requireFlag(args, '--agent'), taskFile: requireFlag(args, '--task-file'), prepareOnly: args.includes('--prepare-only'), ...(launcher ? { launcher } : {}) });
         console.log(JSON.stringify(result, null, 2));
-        if (result.state === 'blocked-client-unavailable' || result.state === 'agent-exited-with-error' || result.state === 'incomplete-capture') process.exitCode = 2;
+          if (!result.state.startsWith('completed-') && result.state !== 'prepared') process.exitCode = 2;
       } else if (args[0] === 'finish') {
         console.log(JSON.stringify(await finishSession(paths, requireFlag(args, '--session'), requireFlag(args, '--learning-file')), null, 2));
-      } else throw new Error('Usage: knowledge session <start|finish> [options]');
+      } else throw new Error('Usage: knowledge session <install|uninstall|status|start|resume|finish> [options]');
       break;
     }
     case 'serve':
