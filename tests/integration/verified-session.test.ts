@@ -14,18 +14,19 @@ const client=vi.hoisted(()=>({mode:'ok',phases:[] as string[]}));
 vi.mock('node:child_process',async(original)=>{
   const actual=await original<typeof import('node:child_process')>();
   return {...actual,spawnSync:(command:string,args:string[],options:any)=>{
-    if(args.includes('--version')) return {status:0,stdout:'codex-cli synthetic-test',stderr:''};
+    if(args.includes('--version')) return {status:client.mode==='missing'?1:0,stdout:client.mode==='wrong-version'?'unsupported-client':'codex-cli synthetic-test',stderr:''};
     const prompt=options?.input?JSON.parse(options.input):{};client.phases.push(prompt.phase??'legacy');
     if(client.mode==='exit') return {status:17,signal:null,stdout:'',stderr:'private diagnostics'};
     if(client.mode==='interrupt') return {status:null,signal:'SIGTERM',stdout:'',stderr:''};
+    if(client.mode==='execute-exit' && prompt.phase==='execute-task')return {status:9,signal:null,stdout:'',stderr:''};
     const outputIndex=args.indexOf('--output-last-message');const output=outputIndex<0?undefined:args[outputIndex+1];
-    if(output) {
+    if(output && client.mode!=='empty') {
       const filesystem=process.getBuiltinModule('node:fs');
       const learning='---\n'+stringify({schema_version:1,id:'alpha.session-learning',title:'Fictional completion',summary:'A fictional durable observation',type:'practice',scope:{kind:'repo',repo_id:'alpha'},status:'candidate',owner:'local-owner',sources:[],relationships:[],created_at:'2020-01-01T00:00:00Z',updated_at:'2020-01-01T00:00:00Z'})+'---\nFictional evidence, not a real project claim.';
       const result=prompt.phase==='consume-context'?{schema_version:1,session_id:prompt.session_id,context_digest:client.mode==='bad-ack'?'wrong':prompt.context_digest,index_generation:prompt.context.index_generation,records:prompt.context.results.map((item:any)=>({id:item.id,summary:item.summary}))}:{schema_version:1,session_id:prompt.session_id,context_digest:prompt.context_digest,outcome:client.mode==='learning'?'learning':'no-learning',markdown:client.mode==='learning'?learning:null};
       filesystem.writeFileSync(output,client.mode==='malformed'?'{bad json':JSON.stringify(result));
     }
-    return {status:0,signal:null,stdout:'{"type":"turn.completed"}\n',stderr:''};
+    return {status:0,signal:null,stdout:client.mode==='missing-event'?'not an event':'{"type":"turn.completed"}\n',stderr:''};
   }};
 });
 let root:string,paths:ResolvedPaths,taskFile:string;
@@ -88,4 +89,33 @@ it('AEF-012 installs/removes only owned runtime adapter configuration and preser
 it('AEF-012 refuses modified installed adapter configuration before launching',async()=>{
   const installed=await (sessions as any).configureSessionAdapter(paths,{action:'install'});await writeFile(installed.path,'{"external":"edit"}');
   await expect(startSession(paths,{repoId:'alpha',agent:'codex',taskFile})).rejects.toMatchObject({code:'CONFLICT'});expect(client.phases).toEqual([]);
+});
+it.each([['missing','blocked-client-unavailable'],['empty','malformed-output'],['missing-event','invalid-context-acknowledgement'],['execute-exit','agent-exited-with-error']])('AEF-012 preserves %s client failures',async(mode,state)=>{
+  client.mode=mode!;expect((await start()).state).toBe(state);
+});
+it('AEF-012 rejects unsupported identity and empty task inputs before client execution',async()=>{
+  await expect(start({agent:'unverified-client'})).rejects.toMatchObject({code:'VALIDATION_ERROR'});
+  await expect(start({repoId:'missing'})).rejects.toMatchObject({code:'NOT_FOUND'});
+  await writeFile(taskFile,'');await expect(start()).rejects.toMatchObject({code:'VALIDATION_ERROR'});expect(client.phases).toEqual([]);
+});
+it('AEF-012 refuses invalid and differently owned session receipts',async()=>{
+  await expect(resumeSession(paths,'../escape')).rejects.toMatchObject({code:'VALIDATION_ERROR'});
+  const receipt=await start({prepareOnly:true});paths.config.principal='other-user';
+  await expect(resumeSession(paths,receipt.session_id,'synthetic-client')).rejects.toMatchObject({code:'VALIDATION_ERROR'});
+});
+it('AEF-012 retains bounded capture failures for operator review',async()=>{
+  client.mode='learning';vi.spyOn(candidates,'submitCandidate').mockRejectedValue(new candidates.DomainError('SOURCE_UNAVAILABLE','Injected intake outage'));
+  const receipt=await start();
+  await expect(resumeSession(paths,receipt.session_id,'synthetic-client')).rejects.toMatchObject({code:'SOURCE_UNAVAILABLE'});
+  await expect(resumeSession(paths,receipt.session_id,'synthetic-client')).rejects.toMatchObject({code:'SOURCE_UNAVAILABLE'});
+  await expect(resumeSession(paths,receipt.session_id,'synthetic-client')).rejects.toMatchObject({code:'CONFLICT'});
+  const saved=JSON.parse(await readFile(path.join(paths.runtimeRoot,'sessions',receipt.session_id,'receipt.json'),'utf8'));expect(saved.capture_attempts).toBe(3);expect(saved.state).toBe('capture-failed');
+});
+it('AEF-012 adapter install is idempotent, version-checked and independently inspectable',async()=>{
+  const configure=(sessions as any).configureSessionAdapter;
+  expect((await configure(paths,{action:'status'})).state).toBe('uninstalled');
+  await configure(paths,{action:'install'});expect((await configure(paths,{action:'install'})).state).toBe('installed');expect((await configure(paths,{action:'status'})).state).toBe('installed');
+  await configure(paths,{action:'uninstall'});await configure(paths,{action:'uninstall'});
+  client.mode='wrong-version';await expect(configure(paths,{action:'install'})).rejects.toMatchObject({code:'SOURCE_UNAVAILABLE'});
+  await expect(configure(paths,{action:'invalid'})).rejects.toMatchObject({code:'VALIDATION_ERROR'});
 });
