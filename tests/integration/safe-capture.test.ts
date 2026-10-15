@@ -9,7 +9,13 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { resolvePaths, saveLocalConfig, type ResolvedPaths } from '../../src/core/config.js';
 import { submitCandidate, listCandidates, updateCandidate } from '../../src/capture/candidate-store.js';
 import { rejectCandidate, approveCandidate } from '../../src/capture/review.js';
-const fault=vi.hoisted(()=>({destination:'',remove:'',archive:false,replace:'',replacement:''}));
+const fault=vi.hoisted(()=>({destination:'',remove:'',archive:false,replace:'',replacement:'',busy:0}));
+vi.mock('node:sqlite',async(original)=>{
+  const actual=await original<typeof import('node:sqlite')>();
+  return {...actual,DatabaseSync:class extends actual.DatabaseSync {
+    override exec(sql:string):void {if(fault.busy>0 && sql.includes('journal_mode')){fault.busy--;throw Object.assign(new Error('database is locked'),{code:'ERR_SQLITE_ERROR',errcode:5});}super.exec(sql);}
+  }};
+});
 vi.mock('node:fs',async(original)=>{
   const actual=await original<typeof import('node:fs')>();
   return {...actual,
@@ -25,7 +31,7 @@ beforeEach(async()=>{
   await copyFile('schemas/knowledge.schema.json',path.join(root,'schemas/knowledge.schema.json'));
   paths=await resolvePaths({root}); paths.config.repositories=[{id:'alpha',name:'Alpha',owner:'local-owner',team:'local',aliases:[],path:root}];
 });
-afterEach(async()=>{fault.destination='';fault.remove='';fault.archive=false;fault.replace='';fault.replacement='';await rm(root,{recursive:true,force:true});});
+afterEach(async()=>{fault.destination='';fault.remove='';fault.archive=false;fault.replace='';fault.replacement='';fault.busy=0;await rm(root,{recursive:true,force:true});});
 function markdown(body='Fictional durable observation.') {return '---\n'+stringify({schema_version:1,id:'alpha.learning',title:'Fictional learning',summary:'Fictional summary',type:'practice',scope:{kind:'repo',repo_id:'alpha'},status:'candidate',owner:'local-owner',sources:[],relationships:[],created_at:'2020-01-01T00:00:00Z',updated_at:'2020-01-01T00:00:00Z'})+'---\n'+body;}
 const submit=(body=markdown())=>submitCandidate(paths,{repoId:'alpha',idempotencyKey:'task:1',markdown:body});
 it('AEF-011 caps UTF-8 bytes before any candidate or ledger write',async()=>{
@@ -97,7 +103,7 @@ it('AEF-011 preserves rejected-content identity across new submission keys',asyn
 it('AEF-011 serializes real concurrent process submissions with one durable identity',async()=>{
   await saveLocalConfig(paths,paths.config);const file=path.join(root,'payload.md');await writeFile(file,markdown());
   const run=()=>promisify(execFile)(process.execPath,['--import','tsx','src/cli.ts','--root',root,'submit','--repo','alpha','--idempotency-key','concurrent','--file',file]);
-  const outcomes=await Promise.allSettled([run(),run(),run()]);expect(outcomes.every(item=>item.status==='fulfilled')).toBe(true);
+  const outcomes=await Promise.allSettled(Array.from({length:6},run));
   const results=outcomes.map(item=>{if(item.status==='rejected')throw item.reason;return item.value;});
   expect(new Set(results.map(item=>JSON.parse(item.stdout).receipt_id)).size).toBe(1);expect(await listCandidates(paths)).toHaveLength(1);
 });
@@ -141,4 +147,7 @@ it('AEF-011 rejects unsafe repository identifiers in retained update journals',a
   const receipt=await submit();const outside=path.join(root,'outside');await mkdir(outside);await writeFile(path.join(outside,receipt.candidate_id+'.md'),markdown());
   const ledger=new DatabaseSync(path.join(paths.runtimeRoot,'receipts.sqlite'));ledger.prepare('INSERT INTO candidate_updates VALUES (?,?,?,?,?,?)').run('../outside',receipt.candidate_id,receipt.content_hash,receipt.content_hash,markdown(),path.join(outside,receipt.candidate_id+'.md'));ledger.close();
   await expect(listCandidates(paths)).rejects.toMatchObject({code:'VALIDATION_ERROR'});
+});
+it('AEF-011 retries bounded transient SQLite initialization contention',async()=>{
+  fault.busy=2;const receipt=await submit();expect(receipt.state).toBe('candidate');expect(fault.busy).toBe(0);expect(await listCandidates(paths)).toHaveLength(1);
 });
