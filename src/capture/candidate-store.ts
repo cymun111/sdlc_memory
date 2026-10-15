@@ -279,7 +279,7 @@ export async function submitCandidate(paths: ResolvedPaths, input: { repoId: str
       row = existingKey;
       duplicate = true;
     } else {
-      const existingContent = database.prepare('SELECT * FROM submissions WHERE repo_id = ? AND content_hash = ? AND state != ? LIMIT 1').get(repo.id, hash, 'rejected') as Record<string, unknown> | undefined;
+      const existingContent = database.prepare('SELECT * FROM submissions WHERE repo_id = ? AND content_hash = ? ORDER BY created_at,idempotency_key LIMIT 1').get(repo.id, hash) as Record<string, unknown> | undefined;
       if (existingContent) {
         row = { ...existingContent, idempotency_key: input.idempotencyKey };
         database.prepare(`INSERT INTO submissions (idempotency_key, repo_id, candidate_id, receipt_id, content_hash, candidate_path, submitter, state, created_at)
