@@ -17,7 +17,7 @@ vi.mock('node:child_process',async(original)=>{
     const output=args[args.indexOf('--output-last-message')+1];
     if(output) {
       const filesystem=process.getBuiltinModule('node:fs');
-      const result=prompt.phase==='consume-context'?{schema_version:1,session_id:prompt.session_id,context_digest:client.mode==='bad-ack'?'wrong':prompt.context_digest,index_generation:prompt.context.index_generation,records:prompt.context.results.map((item:any)=>({id:item.id,summary:item.summary}))}:{schema_version:1,session_id:prompt.session_id,context_digest:prompt.context_digest,outcome:'no-learning'};
+      const result=prompt.phase==='consume-context'?{schema_version:1,session_id:prompt.session_id,context_digest:client.mode==='bad-ack'?'wrong':prompt.context_digest,index_generation:prompt.context.index_generation,records:prompt.context.results.map((item:any)=>({id:item.id,summary:item.summary}))}:{schema_version:1,session_id:prompt.session_id,context_digest:prompt.context_digest,outcome:'no-learning',markdown:null};
       filesystem.writeFileSync(output,client.mode==='malformed'?'{bad json':JSON.stringify(result));
     }
     return {status:0,signal:null,stdout:'{"type":"turn.completed"}\n',stderr:''};
