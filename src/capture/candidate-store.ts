@@ -304,6 +304,9 @@ export async function submitCandidate(paths: ResolvedPaths, input: { repoId: str
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(input.idempotencyKey, repo.id, String(existingContent.candidate_id), String(existingContent.receipt_id), hash, String(existingContent.candidate_path), input.submitter ?? paths.config.principal, String(existingContent.state), String(existingContent.created_at));
         duplicate = true;
       } else {
+        const identity=database.prepare('SELECT candidate_id FROM submissions WHERE repo_id=? AND candidate_id=? LIMIT 1').get(repo.id,record.id);
+        if(identity)throw new DomainError('CONFLICT','Candidate ID already belongs to different content; update the pending candidate or use a new ID.');
+        if(existsSync(destination) && hashMarkdown(readCapture(destination,paths.knowledgeRoot))!==hash)throw new DomainError('CONFLICT','Candidate destination contains unrelated content.');
         const receiptId = randomUUID();
         const createdAt = new Date().toISOString();
         database.prepare(`INSERT INTO submissions (idempotency_key, repo_id, candidate_id, receipt_id, content_hash, candidate_path, submitter, state, created_at)
