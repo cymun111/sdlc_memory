@@ -1,4 +1,5 @@
 import { existsSync, readdirSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { z } from 'zod';
 import type { RegisteredRepo, ResolvedPaths } from '../core/config.js';
@@ -42,7 +43,6 @@ function metadata(record: KnowledgeRecord, repo: RegisteredRepo, markdown: strin
   return candidateMetadata.parse({ id: record.id, repo_id: repo.id, title: record.title, summary: record.summary, scope: record.scope, owner: record.owner, state: 'candidate', content_hash: snapshotText(markdown), utf8_bytes: Buffer.byteLength(markdown, 'utf8') });
 }
 // Hash raw UTF-8 bytes, matching submit/update expected_hash exactly.
-import { createHash } from 'node:crypto';
 function snapshotText(markdown: string) { return createHash('sha256').update(markdown).digest('hex'); }
 type File = { repo: RegisteredRepo; filename: string; markdown: string };
 

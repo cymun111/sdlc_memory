@@ -8,7 +8,7 @@ Local conflict report inspection and owner-only expected-hash resolution/rejecti
 
 ## Editing a pending candidate through MCP
 
-Use `knowledge candidate inspect <id> --repo <repo-id>` to read the Markdown and its `hash`, or use the `content_hash` returned by your most recent submission/update. There is currently no candidate-inspection MCP tool; an agent inspecting existing candidates needs CLI access or the inspected content supplied by the reviewer.
+Use [`list_candidates` and `get_candidate`](candidate-inspection.md) through MCP to obtain owned pending records and their current full-file `content_hash`. Follow every Markdown page before editing. These tools are read-only and never recover writer journals or approve a record. The CLI alternative remains `knowledge candidate inspect <id> --repo <repo-id>`; its `hash` names the same complete content.
 
 Call `update_candidate` with:
 

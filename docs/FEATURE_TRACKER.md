@@ -37,7 +37,7 @@ IDs are renumbered by priority at the user's explicit request. The mapping below
 | AEF-010 | Progressive retrieval and complete budgets | P1 | Done | AEF-003, AEF-004, AEF-005 |
 | AEF-011 | Safe candidate persistence and recovery | P1 | Done | AEF-001, AEF-002 |
 | AEF-012 | Verified task context and completion capture | P1 | Done | AEF-008, AEF-010, AEF-011 |
-| AEF-013 | Candidate inspection through MCP | P1 | Planned | AEF-001, AEF-011 |
+| AEF-013 | Candidate inspection through MCP | P1 | Done | AEF-001, AEF-011 |
 | AEF-014 | SDLC Command integration and migration gate | P1 | Planned | AEF-005 through AEF-013 |
 | AEF-015 | Governed Git publication and lifecycle | P2 | Planned | AEF-004, AEF-011, AEF-013 |
 | AEF-016 | Authenticated shared service and operations | P2 | Planned | AEF-001 through AEF-004, AEF-011, AEF-015 |
@@ -286,7 +286,8 @@ IDs are renumbered by priority at the user's explicit request. The mapping below
 
 ## AEF-013: Candidate inspection through MCP
 
-**Priority / status:** P1 / Planned.
+**Priority / status:** P1 / Done.
+**Completion scope:** [`list_candidates`/`get_candidate`](candidate-inspection.md) provide owner-authorized, bounded metadata and exact UTF-8 Markdown with full-content hashes, stateless content-bound continuations, strict operation outputs and read-only annotations. Inspection never opens/repairs the writer ledger or grants publication rights. [Thirteen SDK cases](../tests/integration/candidate-inspection.test.ts), real eleven-tool stdio smoke and [test-first evidence](aef-013-tdd.md) verify the editing cycle, scope/path isolation, stale pages and complete envelopes. Local owner access, scan limits, raw authored prose and storage-race limits are documented. AEF-014 remains planned; no receiving-system files were changed.
 **Outcome:** Agents obtain content/current hashes before editing learnings.
 
 **Acceptance criteria:**
@@ -443,5 +444,6 @@ Historical evidence is preserved from the previous tracker and establishes local
 | AEF-010 | AEF-005 | 2026-10-14 | [Envelope/cursor helpers](../src/retrieval/budget.ts), service/MCP/facade, discovery/maps | [Progressive tests](../tests/integration/ranked-progressive.test.ts), [TDD checkpoints](aef-009-010-tdd.md); full document pages preserve 34/34 relevant pairs; 95.75% statements, 92.24% branches, 95.90% functions, 100% lines scoped coverage | Rejects generation drift; logical envelope excludes protocol framing; minimal errors can exceed tiny budgets; no retained-generation reads or actual SDLC Command wiring |
 | AEF-011 | New | 2026-10-14 | [Safe I/O](../src/capture/safety.ts), [candidate journals](../src/capture/candidate-store.ts), [review](../src/capture/review.ts) | [TDD checkpoints](aef-011-012-tdd.md), 33 capture safety cases including six real concurrent processes, Windows junctions and injected interruption/replacement checks; 256 total tests, build/typecheck/fixtures/SDK stdio passed | Cooperative local writers and controlled recovery; no hostile-directory-race/power-loss/distributed guarantee; recovered publication requires index refresh; no protected Git publication |
 | AEF-012 | AEF-009 | 2026-10-14 | [Session adapter](../src/capture/session.ts), [contracts](../src/capture/session-contracts.ts), CLI start/resume/finish and runtime install/uninstall | [24 session cases](../tests/integration/verified-session.test.ts), [real Codex verification](evaluations/aef-012-client-verification.json), [reproducible script](../scripts/verify-session-client.ts); aggregate capture/session coverage 88.43% statements, 81.49% branches, 94.44% functions, 96.58% lines | Codex `0.162.0-alpha.17.2`, Windows, read-only two-process acknowledgement protocol; other clients/native templates/global hooks and SDLC Command wiring remain unverified |
+| AEF-013 | AEF-008 | 2026-10-15 | [Inspection service/schemas](../src/capture/inspection.ts), MCP bindings and extended stdio smoke | [TDD checkpoints](aef-013-tdd.md); 269 total tests, 13 inspection cases, typecheck/build/fixtures/eleven-tool SDK stdio passed; scoped coverage 95.65% statements, 88.88% branches, 95.65% functions, 100% lines | Local owner-only pending-file state; no journal repair, shared authentication, arbitrary-prose redaction or approval; bounded scan; no SDLC Command integration |
 
 For each completion add implementation/test links, verification date/commands, measured results where applicable, client/transport versions, and limitations. External checks remain explicit blockers; documentation/configuration generation is not completion evidence.

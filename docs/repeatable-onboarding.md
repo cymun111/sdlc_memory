@@ -31,7 +31,7 @@ const readiness = await application.readiness({ contract_version: 1, repo_id: re
 // readiness.onboarding contains the durable setup evidence, if present.
 ```
 
-`setupOutput` now accepts applied states and optional receipt/step/preview fields. `readinessOutput` adds optional `onboarding`; strict contract-v1 consumers must update output schemas. `uninstallRequest` is exported with the existing contracts. No MCP tool is added; the nine existing tool names remain stable. The `writes` collection is the plan's proposed write categories; applied results report actual step evidence instead.
+`setupOutput` now accepts applied states and optional receipt/step/preview fields. `readinessOutput` adds optional `onboarding`; strict contract-v1 consumers must update output schemas. `uninstallRequest` is exported with the existing contracts. AEF-008 itself adds no MCP tool; AEF-013 later adds candidate listing/inspection alongside the stable nine original names. The `writes` collection is the plan's proposed write categories; applied results report actual step evidence instead.
 
 ## Validation and steps
 
@@ -45,7 +45,7 @@ Every receipt records six steps separately:
 | Map | Explicit committed-source build, exact revision and artifact hash |
 | Index | Valid active generation built from captured knowledge/schema inputs |
 | Client configuration | Knowledge-owned manual launch descriptor; native verification remains false |
-| Tool discovery | Real stdio SDK handshake and presence of all nine current tools |
+| Tool discovery | Real stdio SDK handshake and presence of the nine baseline tools; AEF-013's two additional candidate reads are verified by the current eleven-tool smoke |
 | Scoped read | Schema-valid task context for the canonical repository and requested source revision; applicable result scopes and unblocked status |
 
 The server is launched with an absolute Node executable and built entry point, explicit root/config arguments, and no npm stdout. Each SDK request has a 10-second timeout. Private subprocess errors are replaced with bounded step diagnostics. Full service verification checks the server, not a native agent. Policy/budget blockers cause scoped-read verification to fail; review them through ordinary retrieval before retrying setup.
