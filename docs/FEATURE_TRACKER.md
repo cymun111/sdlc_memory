@@ -305,6 +305,7 @@ IDs are renumbered by priority at the user's explicit request. The mapping below
 ## AEF-014: SDLC Command integration and migration gate
 
 **Priority / status:** P1 / Planned.
+**Execution handoff:** [Workspace, authorization, implementation steps, acceptance matrix and migration gates](AEF-014-IMPLEMENTATION-HANDOFF.md). Lead this initiative from the SDLC Command workspace and keep Memory standalone through the verified pilot.
 **Outcome:** An existing repository completes real SDLC Command onboarding and starts an informed task.
 
 **Acceptance criteria:**
