@@ -16,7 +16,7 @@ npm test
 npm run smoke:mcp
 ```
 
-Run `npm run knowledge -- serve --transport stdio` to expose nine service-backed MCP tools. Repository discovery, local retrieval, candidate intake, candidate updates, and conflict reporting are implemented. Use `npm run knowledge -- help` for the command list. On Windows PowerShell with script execution disabled, use `npm.cmd` in place of `npm`.
+Run `npm run knowledge -- serve --transport stdio` to expose eleven service-backed MCP tools. Repository discovery, local retrieval, candidate intake, bounded candidate listing/inspection, candidate updates, and conflict reporting are implemented. Use `npm run knowledge -- help` for the command list. On Windows PowerShell with script execution disabled, use `npm.cmd` in place of `npm`.
 
 ## Discover repositories before starting a task
 
@@ -90,7 +90,7 @@ This is a local implementation milestone, not a completed V1. It includes schema
 
 Not complete: authenticated Streamable HTTP, comprehensive ACL verification, power-loss/distributed recovery, Git branch/PR publishing, remote evidence verification, incremental indexing, global/native hook installation, production source-change workflow, credential administration, verified Claude Code/Cursor integrations, and end-to-end remote capture. Local approval writes the knowledge worktree and refreshes the index; it does not establish protected-branch publication. [Safe intake/recovery and real Codex session verification](docs/safe-capture-and-sessions.md) have bounded local evidence; they do not establish native MCP configuration compatibility or receiving-system integration. The 36-task synthetic evaluation is documented separately. Do not describe acceptance criteria as passed until their checks exist and run.
 
-`npm run smoke:mcp` starts the built CLI from another working directory against an isolated temporary checkout. An actual SDK client verifies nine-tool discovery, repository discovery, repository maps, and CLI parity, scoped task retrieval, direct reads, relationship traversal, denied reads, active generation identity, candidate submission/replay, updates with stale-hash rejection, and candidate exclusion. This tests local stdio only and leaves application repositories untouched. See [candidate editing](docs/review-and-publishing.md) for the `update_candidate` contract.
+`npm run smoke:mcp` starts the built CLI from another working directory against an isolated temporary checkout. An actual SDK client verifies eleven-tool discovery, repository discovery/maps and CLI parity, scoped retrieval, denied reads, generation identity, and candidate submission → listing → inspection → update → stale rejection → reinspection/replay, with candidate exclusion from published retrieval. This tests local stdio only and leaves application repositories untouched. See [candidate inspection](docs/candidate-inspection.md) and [editing](docs/review-and-publishing.md).
 
 ## Layout
 
