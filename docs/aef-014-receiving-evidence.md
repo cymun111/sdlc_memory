@@ -1,4 +1,6 @@
-# AEF-014 receiving-system checkpoint
+# AEF-014 historical receiving-system checkpoint
+
+Superseded by the [November release checkpoint](aef-014-release-evidence.md).
 
 Date: 2026-10-15. Status: In progress; full API/database pilot pending.
 
