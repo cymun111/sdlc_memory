@@ -38,7 +38,7 @@ IDs are renumbered by priority at the user's explicit request. The mapping below
 | AEF-011 | Safe candidate persistence and recovery | P1 | Done | AEF-001, AEF-002 |
 | AEF-012 | Verified task context and completion capture | P1 | Done | AEF-008, AEF-010, AEF-011 |
 | AEF-013 | Candidate inspection through MCP | P1 | Done | AEF-001, AEF-011 |
-| AEF-014 | SDLC Command integration and migration gate | P1 | Planned | AEF-005 through AEF-013 |
+| AEF-014 | SDLC Command integration and migration gate | P1 | In progress; release pending | AEF-005 through AEF-013 |
 | AEF-015 | Governed Git publication and lifecycle | P2 | Planned | AEF-004, AEF-011, AEF-013 |
 | AEF-016 | Authenticated shared service and operations | P2 | Planned | AEF-001 through AEF-004, AEF-011, AEF-015 |
 | AEF-017 | Automatic freshness and merged-artifact capture | P2 | Planned | AEF-003, AEF-012, AEF-015, AEF-016 |
@@ -304,7 +304,8 @@ IDs are renumbered by priority at the user's explicit request. The mapping below
 
 ## AEF-014: SDLC Command integration and migration gate
 
-**Priority / status:** P1 / Planned.
+**Priority / status:** P1 / Receiving pilot passed; production release/Runner activation pending.
+**Receiving evidence:** [November pilot and release checkpoint](aef-014-release-evidence.md); [application PR #35](https://github.com/cymun111/sdlc_command/pull/35).
 **Execution handoff:** [Workspace, authorization, implementation steps, acceptance matrix and migration gates](AEF-014-IMPLEMENTATION-HANDOFF.md). Lead this initiative from the SDLC Command workspace and keep Memory standalone through the verified pilot.
 **Outcome:** An existing repository completes real SDLC Command onboarding and starts an informed task.
 
